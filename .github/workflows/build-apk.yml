@@ -1,0 +1,42 @@
+name: Build APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      # ถ้ามีไฟล์ modern-controls-changes.zip อยู่ที่ root ของ repo ให้แตกทับก่อน build
+      - name: Apply modern-controls changes
+        run: |
+          if [ -f modern-controls-changes.zip ]; then
+            unzip -o modern-controls-changes.zip
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install build tools and NDK r28c
+        run: sudo port/tools/whole_setup_linux.sh --android
+
+      - name: Build game core (.so)
+        run: port/tools/whole_build_android.sh
+
+      - name: Build APK (coreDebug, signed with the debug key)
+        working-directory: port/android-decomp
+        run: |
+          chmod +x gradlew
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
+          ./gradlew assembleCoreDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CubeEvil4-apk
+          path: port/android-decomp/app/build/outputs/apk/core/debug/*.apk
+          
