@@ -19,6 +19,7 @@ jobs:
           python3 restore_originals.py
           python3 apply_modern_controls.py
           python3 apply_touchlook.py
+          python3 apply_aimwalk.py
 
       - uses: actions/setup-java@v4
         with:
@@ -45,12 +46,12 @@ jobs:
           # versionCode เพิ่มทุกรอบ (ต้องไม่ต่ำกว่าตัวที่ติดตั้งอยู่) เครื่องบางรุ่นไม่ยอมติดตั้งทับเวอร์ชันเลขเท่าเดิม
           ./gradlew assembleCoreDebug -Pre4.versionCode=$((200 + GITHUB_RUN_NUMBER))
 
+      # แค่แสดงลายเซ็นไว้ดู ถ้าล้มก็ไม่เป็นไร (ไม่ให้ขวางการอัปโหลด APK)
       - name: Show APK signature
+        continue-on-error: true
         run: |
-          for f in port/android-decomp/app/build/outputs/apk/core/debug/*.apk; do
-            echo "$f"
-            keytool -printcert -jarfile "$f" | grep -E "Owner|SHA256|Valid"
-          done
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
+          "$APKSIGNER" verify --print-certs port/android-decomp/app/build/outputs/apk/core/debug/*.apk | grep -E "certificate (DN|SHA-256)" || true
 
       - uses: actions/upload-artifact@v4
         with:
