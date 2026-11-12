@@ -9,11 +9,14 @@ jobs:
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # ประวัติ commit ทั้งหมด เพื่อกู้ไฟล์ที่ถูกวางทับ
 
       # แตก modern-controls-v2.zip (ไฟล์ใหม่เท่านั้น ไม่เขียนทับไฟล์เดิม) แล้วรันสคริปต์แก้ไฟล์เดิมเฉพาะจุด
       - name: Apply modern-controls changes
         run: |
           unzip -o modern-controls-v2.zip
+          python3 restore_originals.py
           python3 apply_modern_controls.py
 
       - uses: actions/setup-java@v4
@@ -25,7 +28,7 @@ jobs:
         run: sudo port/tools/whole_setup_linux.sh --android
 
       - name: Build game core (.so)
-        run: port/tools/whole_build_android.sh
+        run: port/tools/whole_build_android.sh --ndk /opt/android-ndk-r28c
 
       # ใช้ keystore ตัวเดิมทุกครั้ง (ไฟล์ debug.keystore ที่ root ของ repo) ลายเซ็นจะได้ไม่เปลี่ยน อัปเดตทับได้เลย
       - name: Use fixed signing key
