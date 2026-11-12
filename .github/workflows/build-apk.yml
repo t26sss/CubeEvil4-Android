@@ -10,12 +10,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # ถ้ามีไฟล์ modern-controls-changes.zip อยู่ที่ root ของ repo ให้แตกทับก่อน build
+      # แตก modern-controls-v2.zip (ไฟล์ใหม่เท่านั้น ไม่เขียนทับไฟล์เดิม) แล้วรันสคริปต์แก้ไฟล์เดิมเฉพาะจุด
       - name: Apply modern-controls changes
         run: |
-          if [ -f modern-controls-changes.zip ]; then
-            unzip -o modern-controls-changes.zip
-          fi
+          unzip -o modern-controls-v2.zip
+          python3 apply_modern_controls.py
 
       - uses: actions/setup-java@v4
         with:
@@ -28,6 +27,12 @@ jobs:
       - name: Build game core (.so)
         run: port/tools/whole_build_android.sh
 
+      # ใช้ keystore ตัวเดิมทุกครั้ง (ไฟล์ debug.keystore ที่ root ของ repo) ลายเซ็นจะได้ไม่เปลี่ยน อัปเดตทับได้เลย
+      - name: Use fixed signing key
+        run: |
+          mkdir -p ~/.android
+          cp debug.keystore ~/.android/debug.keystore
+
       - name: Build APK (coreDebug, signed with the debug key)
         working-directory: port/android-decomp
         run: |
@@ -39,4 +44,3 @@ jobs:
         with:
           name: CubeEvil4-apk
           path: port/android-decomp/app/build/outputs/apk/core/debug/*.apk
-          
