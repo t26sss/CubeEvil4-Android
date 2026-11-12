@@ -18,6 +18,7 @@ jobs:
           unzip -o modern-controls-v2.zip
           python3 restore_originals.py
           python3 apply_modern_controls.py
+          python3 apply_touchlook.py
 
       - uses: actions/setup-java@v4
         with:
@@ -41,7 +42,15 @@ jobs:
         run: |
           chmod +x gradlew
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          ./gradlew assembleCoreDebug
+          # versionCode เพิ่มทุกรอบ (ต้องไม่ต่ำกว่าตัวที่ติดตั้งอยู่) เครื่องบางรุ่นไม่ยอมติดตั้งทับเวอร์ชันเลขเท่าเดิม
+          ./gradlew assembleCoreDebug -Pre4.versionCode=$((200 + GITHUB_RUN_NUMBER))
+
+      - name: Show APK signature
+        run: |
+          for f in port/android-decomp/app/build/outputs/apk/core/debug/*.apk; do
+            echo "$f"
+            keytool -printcert -jarfile "$f" | grep -E "Owner|SHA256|Valid"
+          done
 
       - uses: actions/upload-artifact@v4
         with:
