@@ -1,0 +1,158 @@
+# The app menu's "Modern controls" (wish of a user, 12.11.2026, Controls page): the left stick moves Leon in the
+# direction it points, as the camera sees it, instead of the original's tank controls. Off (the default): as the game.
+# player.cpp re4ModernPrepare runs before the movement routine (pl_R0_Move; only the free-moving routines: idle,
+# walk, back step, run, turn): Leon turns toward the stick (at most 0.25 rad a frame) and the routine is told "up"
+# (Key bit 1) only, with the back / left / right bits off (restored afterwards), so walk and run start and stop as
+# always. The digital pad does the same. The shoulder camera follows Leon's yaw, so a camera-relative stick would
+# circle: while Leon walks and stands the camera keeps a yaw of its own (g_re4_modern_cam_yaw, turned by the right
+# stick; cam_qfps.cpp calcBaseMatrix builds its base matrix from it), otherwise the yaw follows Leon's. With the
+# aim key held Leon first turns to where the camera looks, then the game's aim routine runs unchanged.
+# Not covered: ladders, crouching, boats, pushing and the knife keep the original keys; the back step and the
+# B+down quick turn are off while the switch is on (the stick turns him around instead).
+--- a/src/game/cam_qfps.cpp
++++ b/src/game/cam_qfps.cpp
+@@ -24,6 +24,8 @@
+ /* port (patch 0205): the app's "Field of view" (wish of the project owner, 05.11.2026), degrees added to the
+    game's own field of view of this camera, kept between 10 and 120 degrees; 0 as the game. */
+ extern "C" f32 re4_fov_offset(void); /* port: runtime/aim_options.cpp */
++extern int g_re4_modern_cam_active; /* port (patch 0228): player.cpp */
++extern f32 g_re4_modern_cam_yaw;
+ static f32 re4FovOf(f32 fovy)
+ {
+     f32 add = re4_fov_offset();
+@@ -414,6 +416,18 @@
+     if (m_state & 1) {
+         PSMTXCopy(m_pl_mat, mat);
+     }
++    if (g_re4_modern_cam_active && pPL && pPL->r_no_0 == 0) {
++        /* port (patch 0228): "Modern controls", the camera keeps a yaw of its own */
++        Vec mv0;
++        Vec mv2;
++        getColumn(mat, 3, &mv0);
++        mv2.x = 0.0f;
++        mv2.y = g_re4_modern_cam_yaw;
++        mv2.z = 0.0f;
++        PSMTXIdentity(mat);
++        RotMatrix(mat, &mv2);
++        TransMatrix(mat, &mv0);
++    }
+     if (m_pl_ofs.x != 0.0f || m_pl_ofs.y != 0.0f || m_pl_ofs.z != 0.0f) {
+         PSMTXMultVec(mat, &m_pl_ofs, &v0);
+         TransMatrix(mat, &v0);
+--- a/src/game/player.cpp
++++ b/src/game/player.cpp
+@@ -392,6 +392,98 @@
+     debugMove();
+ }
+ 
++// Port (patch 0228), the app menu's "Modern controls" (wish of a user, 12.11.2026): the left stick moves Leon
++// in the direction it points, as the camera sees it, instead of the original's tank controls (left / right turn
++// him, up walks, down backs away). Off (the default): as the game.
++//  - The shoulder camera follows Leon's yaw, so the stick could not be relative to it (a push to the right would
++//    turn Leon, the camera would follow and the push would turn him further: a circle). While Leon walks and
++//    stands, the camera keeps a yaw of its own (re4_modern_cam_yaw, turned by the right stick; the camera takes
++//    it in CameraQuasiFPS::calcBaseMatrix); at every other time it is set to Leon's yaw, so aiming, events
++//    and the end of them start from where the game puts the camera.
++//  - Each frame, before the routine runs: Leon turns toward the stick's direction (re4_modern_turn at most per
++//    frame) and the game is told "up" only (Key bit 1), so walk and run start and stop as they always did; the
++//    turn, back-step and quick-turn keys (bits 2, 4, 8) are off for the routine and restored afterwards.
++//  - Aiming (the aim key held): Leon first turns to where the camera looks, then the game's own aim routine runs.
++int g_re4_modern_cam_active = 0;
++f32 g_re4_modern_cam_yaw = 0.0f;
++
++static const f32 re4_modern_turn = 0.25f;      // rad a frame
++static const f32 re4_modern_cam_speed = 0.06f;  // rad a frame at the full right stick
++
++extern "C" int re4_modern_controls(void); /* port: runtime/aim_options.cpp (patch 0228) */
++
++// 1 when the routine's keys were changed (the caller restores bits 0..3 afterwards).
++static int re4ModernPrepare(cPlayer* pEm)
++{
++    if (!re4_modern_controls() || pEm->r_no_0 != 0) {
++        g_re4_modern_cam_active = 0;
++        return 0;
++    }
++    switch (pEm->r_no_1) {
++    case 0:  // idle
++    case 1:  // walk
++    case 2:  // back step
++    case 3:  // run
++    case 4:  // turn in place
++        break;
++    default:
++        g_re4_modern_cam_active = 0;
++        g_re4_modern_cam_yaw = pEm->ang.y;
++        return 0;
++    }
++    if (joyKamae()) {
++        // aim: face where the camera looks, then the game's aim routine takes over
++        if (g_re4_modern_cam_active) {
++            pEm->ang.y = LIMIT_ANGLE(g_re4_modern_cam_yaw);
++        }
++        g_re4_modern_cam_active = 0;
++        return 0;
++    }
++    if (!g_re4_modern_cam_active) {
++        g_re4_modern_cam_yaw = pEm->ang.y;
++        g_re4_modern_cam_active = 1;
++    }
++    // the right stick turns the camera (its own turn of the original's view offset is off)
++    g_re4_modern_cam_yaw += (f32) Key.substickX / 59.0f * re4_modern_cam_speed;
++    g_re4_modern_cam_yaw = LIMIT_ANGLE(g_re4_modern_cam_yaw);
++    Key.substickX = 0;
++
++    f32 x = (f32) Key.stickX;
++    f32 y = (f32) Key.stickY;
++    if (x * x + y * y <= 30.0f * 30.0f) {
++        // the digital pad
++        x = (f32) (((Key.on & 8) ? 1 : 0) - ((Key.on & 4) ? 1 : 0)) * 100.0f;
++        y = (f32) (((Key.on & 1) ? 1 : 0) - ((Key.on & 2) ? 1 : 0)) * 100.0f;
++        if (x == 0.0f && y == 0.0f) {
++            return 0;
++        }
++    }
++    // the camera's forward on the ground and its right (Leon turning right adds to ang.y: forward (sin, cos), right (cos, -sin))
++    f32 fx = -pG->Camera.Look.x;
++    f32 fz = -pG->Camera.Look.z;
++    const f32 len = sqrtf(fx * fx + fz * fz);
++    if (len < 0.1f) {
++        fx = sinf(g_re4_modern_cam_yaw);
++        fz = cosf(g_re4_modern_cam_yaw);
++    } else {
++        fx /= len;
++        fz /= len;
++    }
++    const f32 dx = fx * y + fz * x;
++    const f32 dz = fz * y - fx * x;
++    const f32 target = atan2f(dx, dz);
++    f32 diff = LIMIT_ANGLE(target - pEm->ang.y);
++    if (diff > re4_modern_turn) {
++        diff = re4_modern_turn;
++    } else if (diff < -re4_modern_turn) {
++        diff = -re4_modern_turn;
++    }
++    pEm->ang.y = LIMIT_ANGLE(pEm->ang.y + diff);
++    Key.on = (Key.on & ~(u64) 0xF) | 1;
++    Key.trg &= ~(u64) 0xE;
++    return 1;
++}
++
+ // Routine 0/0: the movement sub routines (Pl_func_move_tbl by xFD).
+ void pl_R0_Move(cPlayer* pEm)
+ {
+@@ -399,7 +491,15 @@
+         pEm->m_ConDmTimer = 0;
+     }
+     pEm->m_ConDmFlag = 0;
++    /* port (patch 0228): the app menu's "Modern controls" */
++    const u64 modern_on = Key.on;
++    const u64 modern_trg = Key.trg;
++    const int modern = re4ModernPrepare(pEm);
+     Pl_func_move_tbl[pEm->r_no_1](pEm);
++    if (modern) {
++        Key.on = (Key.on & ~(u64) 0xF) | (modern_on & 0xF);
++        Key.trg = (Key.trg & ~(u64) 0xF) | (modern_trg & 0xF);
++    }
+ }
+ 
+ extern "C" int re4_run_held(int held); /* port: runtime/aim_options.cpp (patch 0156) */
