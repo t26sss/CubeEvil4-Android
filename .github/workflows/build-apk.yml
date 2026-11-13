@@ -27,11 +27,20 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # เก็บแคช Gradle ไว้ใช้รอบต่อไป (ไม่ต้องโหลดไลบรารีใหม่ทุกครั้ง)
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('port/android-decomp/**/*.gradle', 'port/android-decomp/gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Install build tools and NDK r28c
         run: sudo port/tools/whole_setup_linux.sh --android
 
       - name: Build game core (.so)
-        run: port/tools/whole_build_android.sh --ndk /opt/android-ndk-r28c
+        run: port/tools/whole_build_android.sh --ndk /opt/android-ndk-r28c --abi arm64-v8a
 
       # ใช้ keystore ตัวเดิมทุกครั้ง (ไฟล์ debug.keystore ที่ root ของ repo) ลายเซ็นจะได้ไม่เปลี่ยน อัปเดตทับได้เลย
       - name: Use fixed signing key
