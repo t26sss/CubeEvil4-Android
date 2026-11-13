@@ -199,23 +199,32 @@ public final class CoreBridge {
   public static native void setMerge(boolean on);
   /** "Far camera": the shoulder camera further back while walking and standing (patch 0171). */
   public static native void setFarCamera(boolean on);
-
-  /** "Modern controls": the left stick moves Leon the way it points, as the camera sees it (patch 0228). */
-  public static native void setModernControls(boolean on);
   /** "Field of view" (PLAYER VIEW): the shoulder camera's vertical field of view changed by `degrees`
    *  (-15 .. +15; 0 as the game; patch 0205), sent with the aim settings. */
   public static native void setFov(int degrees);
-  /** The benchmark (Display -> GRAPHICS): the game goes to two places and the renderer measures its levels. */
-  public static native void startBenchmark();
+  /** The benchmark: the game goes to the lake's dock. `mode` 0: the renderer searches the levels for 30 and 60 FPS,
+   *  the 30 pass from `top` (halves) after `warmup` seconds; 1 (0.99.10): the check of a profile with the app's
+   *  options (benchmarkMeasure, finishBenchmark). */
+  public static native void startBenchmark(int mode, int top, int warmup);
   public static native void cancelBenchmark();
+  /** The check (mode 1) ends: back to where the game was. */
+  public static native void finishBenchmark();
   /** {phase (0 idle, 1 going, 2 measuring, 3 back, 4 done, 5 cancelled, 6 back after a cancel, -1 refused, -2
-   *  failed), run (place * 2 + 60 FPS), level in halves, result with 30, result with 60, pictures a second x 10}. */
+   *  failed), run (0: the 30, 1: the 60 FPS pass), level in halves, result with 30, result with 60, pictures a second
+   *  x 10, held bits, the processor sign, mode}. */
   public static native int[] benchmarkState();
+  /** The check's seconds since the last call: {seconds, game pictures, pictures shown, weak seconds, levels summed}. */
+  public static native int[] benchmarkMeasure();
   /** "Dynamic" up to these levels (halves; 0: none), with 30 and with 60 FPS: the benchmark's result. */
   public static native void setDynamicCaps(int cap30, int cap60);
   /** Original TV filter: the game's vertical copy filter on the picture. */
   public static native void setTvFilter(boolean on);
   public static native void setPsx(boolean on);
+  /** HD textures (Cheats & Mods, TexturePacks): the player's pack file ("" off), "Sharpness: Half", the replacements'
+   *  budget in MB. "" when the pack is open (or off), else why it cannot be used. */
+  public static native String setTexturePack(String path, boolean half, int budgetMb);
+  /** What the renderer did with the HD textures: {replaced, looked up, bytes of the replacements on the GPU now}. */
+  public static native long[] texturePackUse();
   /** Lens flares at the game's lights (the menu, off by default; GxRenderer::SetFlares): 0 off, 1 lens flares (the
    *  ghosts only), 2 halos + lens flares (the glow and star at each light too; 0.99.6). */
   public static native void setFlares(int mode);
@@ -248,6 +257,13 @@ public final class CoreBridge {
   /** Sharpen (0 off, 1 light, 2 strong): a contrast-adaptive sharpening of every picture after FXAA, not movies. */
   public static native void setSharpen(int level);
   /**
+   * CRT (0.99.9; 0 off, 1 light, 2 strong): the picture as a tube TV showed it (lines, a curved glass, a glow); only
+   * what the game draws, not the touch controls nor the app's overlays.
+   */
+  public static native void setCrt(int level);
+  /** Colour (0.99.9): mode 0 off, 1 warm film, 2 survival horror; level 1 light, 2 strong. */
+  public static native void setColour(int mode, int level);
+  /**
    * Gyro aiming (GyroAim): the device's turn rates in rad/s about the screen's axes (yaw, pitch);
    * the core turns the aim by them while Leon aims a gun. 0, 0: still.
    */
@@ -258,6 +274,14 @@ public final class CoreBridge {
    * them at the next game frame.
    */
   public static native void aimTurn(float yaw, float pitch);
+  /**
+   * The mouse wheel (CoreActivity, 0.99.12): whole notches, up positive. While the scope or the binoculars are up
+   * the core zooms by them (an eighth of the zoom a notch, up zooms in, as the C stick does); elsewhere it drops
+   * them. Cores before 12.11.2026 ignore it.
+   */
+  public static native void zoom(int notches);
+  /** The cheat "Random enemies" (CoreMenu, 0.99.12): its seed (20 bits), 0 off; from the next room on. */
+  public static native void setEnemyRandom(int seed);
   /**
    * A tap on the picture at (x, y) pixels of the surface (CoreActivity): the core uses it in the
    * game's sub screens (runtime/menu_touch.cpp: tabs, the attache case, its command menu); cores

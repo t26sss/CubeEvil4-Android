@@ -20,11 +20,13 @@
 #include "gx_gl.h"
 #include "gx_selfcheck.h"
 #include "minimap_view.h"
+#include "picture_cadence.h"
 #include "re4_card_files.h"
 #include "re4_core_client.h"
 #include "re4_cpu_info.h"
 #include "re4_gx_frame.h"
 #include "re4_gx_frame_io.h"
+#include "tex_pack.h"
 
 #include <EGL/egl.h>
 #include <android/log.h>
@@ -115,6 +117,8 @@ struct CoreApi {
   void (*setHudLayout)(int, int, int){};  // optional (cores since 07.11.2026, patch 0215): the life gauge's corner
   void (*touch)(float, float){};  // optional (cores since 22.10.2026): a tap on the picture
   void (*aimTurn)(float, float){};  // optional (cores since 29.10.2026): swipe aiming
+  void (*zoom)(int){};            // optional (cores since 12.11.2026, 0.99.12): the mouse wheel zooms
+  void (*setEnemyRandom)(int){};  // optional (cores since 12.11.2026, 0.99.12): the cheat "Random enemies"
   void (*swipe)(int){};           // optional (cores since 22.10.2026): a swipe across it
   void (*slash)(float){};         // optional (cores since 22.10.2026): the knife by a swipe
   int (*instant)(int, Re4InstantInfo *){};
@@ -464,6 +468,8 @@ void loadCore(JNIEnv *env) {
   api.setHudLayout = reinterpret_cast<void (*)(int, int, int)>(dlsym(api.main, "re4_core_set_hud_layout"));
   api.touch = reinterpret_cast<void (*)(float, float)>(dlsym(api.main, "re4_core_touch"));
   api.aimTurn = reinterpret_cast<void (*)(float, float)>(dlsym(api.main, "re4_core_aim_turn"));
+  api.zoom = reinterpret_cast<void (*)(int)>(dlsym(api.main, "re4_core_zoom"));
+  api.setEnemyRandom = reinterpret_cast<void (*)(int)>(dlsym(api.main, "re4_core_set_enemy_random"));
   api.swipe = reinterpret_cast<void (*)(int)>(dlsym(api.main, "re4_core_swipe"));
   api.slash = reinterpret_cast<void (*)(float)>(dlsym(api.main, "re4_core_slash"));
   api.instant = reinterpret_cast<int (*)(int, Re4InstantInfo *)>(dlsym(api.main, "re4_core_instant"));
@@ -684,13 +690,41 @@ std::atomic<int> optSharpen{0};  // the menu's sharpening (CoreBridge.setSharpen
 std::atomic<int> optLaserColour{0};  // the menu's laser sight colour (CoreBridge.setLaserColour), sent at the start
 std::atomic<int> optMinimap{0};   // the menu's minimap (CoreBridge.setMinimap)
 std::atomic<int> optFlares{0};    // the menu's lens flares: 0 off, 1 lens flares, 2 halos + lens flares (CoreBridge.setFlares; or RE4_GX_FLARES=1)
+std::atomic<int> optCrt{0};       // the menu's CRT (CoreBridge.setCrt: 0 off, 1 light, 2 strong; or RE4_GX_CRT)
+std::atomic<int> optColour{0};    // the menu's colour (CoreBridge.setColour: mode * 4 + level; or RE4_GX_COLOUR=M,L)
 std::atomic<int> optPsx{0};       // the menu's PSone demake (CoreBridge.setPsx; or RE4_GX_PSX=1)
+// HD textures of the player's pack (CoreBridge.setTexturePack, port/docs/textur-lader-plan.md): the open pack (null:
+// off), its first level (1: "Sharpness: Half"), the replacements' budget; what the renderer did with it (texturePackUse)
+std::mutex texPackLock;
+std::shared_ptr<re4gx::TexPack> texPack;
+unsigned texPackLevel = 0;
+std::size_t texPackBudget = 256u << 20;
+std::atomic<unsigned> texPackReplaced{0}, texPackLooked{0};
+std::atomic<std::uint64_t> texPackBytes{0};
 std::atomic<int> optTvFilter{0};  // the menu's original TV filter (CoreBridge.setTvFilter; or RE4_GX_TV_FILTER=1)
 std::atomic<int> optSmooth{0};  // the menu's 60 FPS from in-between pictures (CoreBridge.setSmooth)
 std::atomic<int> optMerge{0};   // the menu's merged draw calls (CoreBridge.setMerge; or RE4_GX_MERGE=1)
 std::atomic<int> optVertexRing{0};  // the menu's vertex ring (CoreBridge.setVertexRing; or RE4_GX_VERTEX_RING=1)
 // pictures put on the screen so far, each once: the game's and the in-between ones (the FPS display)
 std::atomic<long long> picturesMade{0};
+// the pictures' cadence on the screen (0.99.9; picture_cadence.h): the display's vsyncs (CoreBridge.vsync: the
+// latest, the period smoothed, a late callback not counted) and the render thread's record of the new pictures
+std::atomic<long long> displayVsyncAt{0}, displayVsyncPeriod{0};
+re4gx::PictureCadence pictureCadence;
+// 0.99.12: a steady rhythm at 30 pictures a second (picture_cadence.h PictureHold)
+re4gx::PictureHold pictureHold;
+// a new picture drawn at this refresh: noted at its vsync, every 10 s a line for the log
+void NotePicture() {
+  const long long now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now().time_since_epoch())
+                            .count();
+  const long long at = displayVsyncAt.load(), period = displayVsyncPeriod.load();
+  const long long vsync = re4gx::PictureCadence::Snap(now, at, period);
+  pictureHold.Shown(vsync);
+  std::string line;
+  if (pictureCadence.Note(vsync, period, period > 0 ? 1e9 / period : 0.0, &line))
+    LOG("%s", line.c_str());
+}
 // 60 FPS (experimental): the chunk run last, kept for the in-between picture after it (its
 // vertices), and the next one, whose in-between picture is on the screen and which runs at the
 // next refresh; off for this renderer when the GPU does not keep up
@@ -738,7 +772,6 @@ int cpuSkipSent = -1;  // what the core was told last (-1: nothing yet)
 // The menu's "Invert vertical" and "Aim speed" for touch and controllers (CoreBridge.setAim, wish of the
 // project owner, 30.10.2026): bit 0 inverted, bits 8.. the speed in percent (the core's runtime/aim_options.cpp).
 std::atomic<int> optAim{100 << 8};
-std::atomic<int> optModern{0};  // the menu's "Modern controls" (CoreBridge.setModernControls), bit 4 of the aim bits (patch 0228)
 std::atomic<int> optFarCamera{0};  // the menu's "Far camera" (CoreBridge.setFarCamera), bit 3 of the aim bits
 // the menu's "Field of view" (CoreBridge.setFov, -15 .. +15 degrees, patch 0205): bits 24..29 of the aim bits as
 // degrees + 32 (0: as the game; the core's runtime/aim_options.cpp)
@@ -756,8 +789,19 @@ std::atomic<int> optCap30{0}, optCap60{0};
 // project owner's device test 06.11.2026), a new renderer (new picture options) starts at it, and the pictures are
 // counted here, not in the renderer's statistics, which start over with a new renderer. It is fed on every refresh,
 // with or without a chunk, so its clock goes on when the game stalls; at most kBenchLimit seconds in all.
+// Since 0.99.10 (the first start's benchmark and the performance profiles, port/docs/leistungsprofil-plan.md) two
+// kinds: mode 0 the level search above (the app gives the 30 pass's first level and a warm-up), mode 1 the check of a
+// profile: at the place with the app's own options, "Dynamic" and the 60 FPS pacer as when playing, the app reads the
+// seconds in windows (CoreBridge.benchmarkMeasure) while it changes the options, and ends it (ask 3).
 struct LevelBench {
-  std::atomic<int> ask{0};    // 1 start, 2 cancel (CoreBridge)
+  std::atomic<int> ask{0};    // 1 start, 2 cancel, 3 end the check (mode 1) (CoreBridge)
+  std::atomic<int> mode{0}, top{8}, cpuSign{0};
+  // 0.99.12: the core thread's processor time a game picture at the 30 pass's result, % of 33.37 ms (-1 not known)
+  std::atomic<int> cpuLoad{-1};
+  std::atomic<double> warmup{0.0};
+  // mode 1: the seconds since the app's last read: count, game pictures, pictures shown, weak seconds (game below 27,
+  // with 60 FPS shown below 54), the level (halves) summed
+  std::atomic<int> mSeconds{0}, mChunks{0}, mShown{0}, mWeak{0}, mLevels{0};
   // 0 idle, 1 going to the place, 2 measuring, 3 going back, 4 done (results), 5 cancelled, 6 going back
   // after a cancel or a stop; -1 refused (neither free play nor the title's menu), -2 failed (the game could not be
   // kept, or the time limit), -3 no place reached, -4 the place's save does not fit these discs
@@ -770,9 +814,14 @@ struct LevelBench {
   std::chrono::steady_clock::time_point since, start, secondAt;
   unsigned long long chunks = 0, chunksAt = 0, shownAt = 0;
   unsigned droppedAt = 0, polls = 0;
+  // the core thread's processor time of the chunks (Re4GxChunk::coreCpuUs, cores since 0.99.12), and their count
+  unsigned long long cpuUs = 0, cpuUsAt = 0, cpuChunks = 0, cpuChunksAt = 0;
 };
 LevelBench levelBench;
 constexpr double kBenchLimit = 360.0;  // seconds for the whole benchmark at most (the way there and back included)
+// The benchmark sets the level and the 60 FPS itself (mode 0 measuring); the check (mode 1) leaves them to Dynamic
+bool benchForcing() { return levelBench.active && levelBench.mode.load() == 0; }
+bool benchChecking() { return levelBench.active && levelBench.mode.load() == 1; }
 int aimSent = -1;  // what the core was told last (-1: nothing yet)
 // The menu's AUDIO page (CoreBridge.setSoundVolume, wish of the project owner, 30.10.2026): music | effects << 8 in
 // percent (the core's runtime/sound_volume.cpp).
@@ -1073,7 +1122,11 @@ void SaveShot(re4gx::GxRenderer &renderer, const char *path) {
     return;
   std::vector<unsigned char> rgba(static_cast<size_t>(w) * h * 4);
   if (renderer.Api() == re4gx::GxApi::kVulkan) {
-    // Vulkan: the same picture read back (rows from the top: turned to GL's order, bottom up, for the BMP)
+    // Vulkan: the same picture read back (rows from the top: turned to GL's order, bottom up, for the BMP), without
+    // the minimap: its square counts in screen pixels (291 at 43, 43 on 1920 x 1080) and covered most of the XFB's
+    // 512 x 448 (the project owner's dumps 11.11.2026; GL draws it after Present, so its shots never had it). The
+    // next picture's present sets it again (drawGx: SetOverlay before every Present)
+    renderer.SetOverlay(re4gx::GxOverlay());
     std::vector<std::uint8_t> top;
     if (!renderer.ReadPresented(static_cast<int>(w), static_cast<int>(h), 0, 0, static_cast<int>(w),
                                 static_cast<int>(h), 0, 0, &top) || top.size() != rgba.size())
@@ -1555,22 +1608,29 @@ void levelBenchResults(std::chrono::steady_clock::time_point now) {
   b.res30 = s.Result(0);
   b.res60 = s.Result(1);
   b.held = (s.Held(0) ? 1 : 0) | (s.Held(1) ? 2 : 0);
+  b.cpuSign = s.CpuSign() ? 1 : 0;
+  b.cpuLoad = s.CpuLoad();
   api.cheatAction(22);
   b.phase = 3;
   b.since = now;
-  LOG("benchmark: result %s with 30 pictures a second (%s), %s with 60 (%s)", re4gx::BenchSteps::Name(s.Result(0)).c_str(),
+  char load[96] = "";
+  if (s.CpuLoad() >= 0)
+    std::snprintf(load, sizeof(load), "; the game's thread needs %d %% of a picture's time", s.CpuLoad());
+  LOG("benchmark: result %s with 30 pictures a second (%s), %s with 60 (%s)%s%s", re4gx::BenchSteps::Name(s.Result(0)).c_str(),
       s.Held(0) ? "stable" : "not stable even there", re4gx::BenchSteps::Name(s.Result(1)).c_str(),
-      s.Held(1) ? "stable" : "not stable even there");
+      s.Held(1) ? "stable" : "not stable even there",
+      s.CpuSign() ? "; lower levels hardly helped: the processor holds it back" : "", load);
 }
 
-// The benchmark's next step, at every refresh (`chunk`: a real chunk of the game ran in it).
-void levelBenchTick(std::chrono::steady_clock::time_point now, bool chunk) {
+// The benchmark's next step, at every refresh (`chunk`: a real chunk of the game ran in it; `cpuUs`: the core thread's
+// processor time for it, 0 not known).
+void levelBenchTick(std::chrono::steady_clock::time_point now, bool chunk, unsigned cpuUs = 0) {
   LevelBench &b = levelBench;
   const int ask = b.ask.exchange(0);
   auto finish = [&](int phase) {
     b.phase = phase;
     b.active = false;
-    optSmooth = b.keepSmooth;
+    if (b.mode.load() == 0) optSmooth = b.keepSmooth;  // the check (mode 1): the app's 60 FPS as it set it
     // the renderer anew with the menu's level, only when the benchmark changed it: a refused start (the title's logos,
     // an event) made a new renderer for nothing, which lost the title's EFB copies ("3 missing", the project owner's
     // log 06.11.2026)
@@ -1592,6 +1652,8 @@ void levelBenchTick(std::chrono::steady_clock::time_point now, bool chunk) {
     b.level = 0;
     b.res30 = b.res60 = b.rate10 = b.held = 0;
     b.chunks = 0;
+    b.cpuUs = b.cpuUsAt = b.cpuChunks = b.cpuChunksAt = 0;
+    b.cpuLoad = -1;
     b.polls = 0;
     b.failed = false;
     b.touched = false;
@@ -1599,15 +1661,35 @@ void levelBenchTick(std::chrono::steady_clock::time_point now, bool chunk) {
     b.keepSmooth = optSmooth.load();
     b.phase = 1;
     b.since = b.start = now;
+    b.cpuSign = 0;
+    b.mSeconds = b.mChunks = b.mShown = b.mWeak = b.mLevels = 0;
     api.cheatAction(20);
-    LOG("benchmark: started (the lake's dock; a 30 and a 60 FPS pass, each from 4x down half a level every %.0f s)",
-        re4gx::BenchSteps::kHold);
+    if (b.mode.load() == 1)
+      LOG("benchmark: the check started (the lake's dock with the app's options; the app reads the seconds)");
+    else
+      LOG("benchmark: started (the lake's dock; %.0f s warm-up, a 30 FPS pass from %s and a 60 FPS pass from its result, "
+          "down half a level every %.0f s)", b.warmup.load(), re4gx::BenchSteps::Name(b.top.load()).c_str(),
+          re4gx::BenchSteps::kHold);
     return;
   }
   if (!b.active) return;
-  if (chunk) b.chunks++;
+  if (chunk) {
+    b.chunks++;
+    if (cpuUs) {
+      b.cpuUs += cpuUs;
+      b.cpuChunks++;
+    }
+  }
   if (ask == 2 && b.phase.load() != 6 && b.phase.load() != 3) {
     goBack("cancelled");
+    return;
+  }
+  if (ask == 3 && b.mode.load() == 1 && b.phase.load() == 2) {
+    // the check's end: back, its figures are the app's
+    api.cheatAction(22);
+    b.phase = 3;
+    b.since = now;
+    LOG("benchmark: the check ended by the app, back");
     return;
   }
   const double inPhase = std::chrono::duration<double>(now - b.since).count();
@@ -1626,18 +1708,31 @@ void levelBenchTick(std::chrono::steady_clock::time_point now, bool chunk) {
       finish(state == -1 || state == -4 ? state : -2);
       return;
     }
-    if ((state & 15) == 2) {
+    if ((state & 15) == 2 && b.mode.load() == 1) {
+      // the check: nothing set here, the seconds counted from now on
+      b.phase = 2;
+      b.secondAt = now;
+      b.chunksAt = b.chunks;
+      b.cpuUsAt = b.cpuUs;
+      b.cpuChunksAt = b.cpuChunks;
+      b.shownAt = picturesMade.load();
+      b.droppedAt = gxBetweenDropped;
+      LOG("benchmark: at the place; the check counts the seconds");
+    } else if ((state & 15) == 2) {
       b.run = 0;
       b.touched = true;
       optSmooth = 0;
-      b.steps.Start(std::chrono::duration<double>(now - b.start).count());
+      b.steps.Start(std::chrono::duration<double>(now - b.start).count(), b.top.load(), b.warmup.load());
       levelBenchSet(b.steps.Level());
       b.phase = 2;
       b.secondAt = now;
       b.chunksAt = b.chunks;
+      b.cpuUsAt = b.cpuUs;
+      b.cpuChunksAt = b.cpuChunks;
       b.shownAt = picturesMade.load();
       b.droppedAt = gxBetweenDropped;
-      LOG("benchmark: at the place; the 30 FPS pass from %s", re4gx::BenchSteps::Name(b.steps.Level()).c_str());
+      LOG("benchmark: at the place; the 30 FPS pass from %s after %.0f s warm-up",
+          re4gx::BenchSteps::Name(b.steps.Level()).c_str(), b.warmup.load());
     } else if (inPhase > 60.0) {
       b.failed = true;
       goBack("the place was not ready in 60 s");
@@ -1655,13 +1750,31 @@ void levelBenchTick(std::chrono::steady_clock::time_point now, bool chunk) {
     const int c = static_cast<int>(std::lround((b.chunks - b.chunksAt) / sec));
     const int sh = static_cast<int>(std::lround((picturesMade.load() - b.shownAt) / sec));
     const unsigned dropped = gxBetweenDropped - b.droppedAt;
+    // the core thread's processor time a game picture in this second (ms; negative: an older core, not known)
+    const unsigned long long cpuChunks = b.cpuChunks - b.cpuChunksAt;
+    const double cpuMs = cpuChunks ? static_cast<double>(b.cpuUs - b.cpuUsAt) / 1000.0 / static_cast<double>(cpuChunks)
+                                   : -1.0;
+    b.cpuUsAt = b.cpuUs;
+    b.cpuChunksAt = b.cpuChunks;
     b.chunksAt = b.chunks;
     b.shownAt = picturesMade.load();
     b.droppedAt = gxBetweenDropped;
     b.secondAt = now;
+    if (b.mode.load() == 1) {
+      // the check: the second counted for the app's window (the level the renderer draws at, Dynamic's)
+      const bool sixty = optSmooth.load() != 0;
+      b.mSeconds++;
+      b.mChunks += c;
+      b.mShown += sh;
+      if (c < re4gx::BenchSteps::kWeakChunks || (sixty && sh < re4gx::BenchSteps::kWeakShown)) b.mWeak++;
+      b.mLevels += infoScale.load();
+      b.level = infoScale.load();
+      b.rate10 = (sixty ? sh : c) * 10;
+      return;
+    }
     std::string line;
     const re4gx::BenchSteps::Step step =
-        b.steps.Second(std::chrono::duration<double>(now - b.start).count(), c, sh, dropped, &line);
+        b.steps.Second(std::chrono::duration<double>(now - b.start).count(), c, sh, dropped, &line, cpuMs);
     b.rate10 = b.steps.Rate10();
     if (step != re4gx::BenchSteps::kNone) {
       LOG("%s", line.c_str());
@@ -1753,6 +1866,14 @@ bool drawGx() {
             ScaleName(scale).c_str(), ScaleName(cap).c_str(), optSmooth.load() ? 60 : 30);
       }
     }
+    const int dynTop = scale;  // Dynamic's highest level
+    // the benchmark's check (mode 1, 0.99.10): a new renderer starts at the benchmark's level, not half a level
+    // above it (the project owner's Retroid check 11.11.2026 started each window at 3.5x and counted the way down)
+    if (autoLevelOn && proven && benchChecking()) {
+      scale = proven;
+      LOG("benchmark: the check's new renderer at the benchmark's level %s (Dynamic up to %s)", ScaleName(scale).c_str(),
+          ScaleName(dynTop).c_str());
+    }
     // once per run: does this GPU compute the movie colours like the GameCube (gx_selfcheck.cpp;
     // the Galaxy A36 showed them green and brown)? Before any renderer, on a renderer of its own;
     // on wrong pixels it picks a way of writing the TEV's lerp that this GPU computes right.
@@ -1761,7 +1882,7 @@ bool drawGx() {
       gpuChecked = true;
       LOG("%s", re4gx::MovieColourCheck(nullptr).c_str());
     }
-    if (levelBench.active && levelBench.phase.load() == 2) {
+    if (benchForcing() && levelBench.phase.load() == 2) {
       scale = levelBench.level.load();
       autoLevelOn = false;
       LOG("benchmark: the new renderer at the benchmark's level %s", re4gx::BenchSteps::Name(scale).c_str());
@@ -1874,8 +1995,8 @@ bool drawGx() {
     }
     if (autoLevelOn) {
       // in half steps down to 1x (wish of the project owner, 27.10.2026: 2x straight to 1x lost too much)
-      autoLevel.Start(scale, std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(),
-                      2, true, proven);
+      autoLevel.Start(dynTop, std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(),
+                      2, true, proven, scale);
       LOG("dynamic resolution: from level %sx (the screen's), half a level lower while the GPU falls behind",
           ScaleName(scale).c_str());
     }
@@ -1956,6 +2077,47 @@ bool drawGx() {
   gx->SetBandwidthSave(optVkBandwidth.load() != 0);
   static const bool psxEnv = getenv("RE4_GX_PSX") && *getenv("RE4_GX_PSX") == '1';
   gx->SetPsx(optPsx.load() != 0 || psxEnv);
+  {
+    std::lock_guard<std::mutex> lock(texPackLock);
+    gx->SetTexturePack(texPack, texPackLevel, texPackBudget);
+  }
+  if (gx->TakeTexturesDropped()) {
+    // another pack, level or the PSone demake: the textures went, the game core sends them all again
+    smoothDrop();
+    api.gxDetach();
+    LOG("HD textures: the game's textures are sent again");
+  }
+  {
+    const re4gx::GxStats &st = gx->Stats();
+    texPackReplaced.store(st.hdTextures);
+    texPackLooked.store(st.hdLookups);
+    texPackBytes.store(st.hdBytesNow);
+    // the error report and the device tests: what the HD textures cost so far, at most every 5 seconds
+    static unsigned loggedLookups = 0;
+    static std::chrono::steady_clock::time_point loggedAt;
+    const auto at = std::chrono::steady_clock::now();
+    if (st.hdLookups != loggedLookups && at - loggedAt > std::chrono::seconds(5)) {
+      loggedLookups = st.hdLookups;
+      loggedAt = at;
+      LOG("HD textures so far: %u of %u replaced, %u over the budget, %u not readable, %.1f MB on the GPU; key %.0f ms, "
+          "reading %.0f ms, GPU upload %.0f ms",
+          st.hdTextures, st.hdLookups, st.hdOverBudget, st.hdReadErrors, st.hdBytesNow / 1048576.0, st.hdKeyUs / 1000.0,
+          st.hdReadUs / 1000.0, st.hdUploadUs / 1000.0);
+    }
+  }
+  static const int crtEnv = getenv("RE4_GX_CRT") ? atoi(getenv("RE4_GX_CRT")) : 0;
+  gx->SetCrt(crtEnv > 0 ? crtEnv : optCrt.load());
+  static int colourEnvMode = -1, colourEnvLevel = 1;
+  if (colourEnvMode < 0) {
+    colourEnvMode = 0;
+    if (const char *e = getenv("RE4_GX_COLOUR"))
+      std::sscanf(e, "%d,%d", &colourEnvMode, &colourEnvLevel);
+  }
+  const int colour = optColour.load();
+  if (colourEnvMode > 0)
+    gx->SetColour(colourEnvMode, colourEnvLevel);
+  else
+    gx->SetColour(colour / 4, colour % 4);
   static const bool flaresEnv = getenv("RE4_GX_FLARES") && *getenv("RE4_GX_FLARES") == '1';
   gx->SetFlares(optFlares.load() != 0 || flaresEnv);
   gx->SetFlareHalos(optFlares.load() != 1);
@@ -1981,16 +2143,34 @@ bool drawGx() {
     if (roomStart || (breakPaused && !paused)) {
       const double t = std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count();
       autoLevel.Restart(t);
-      if (!levelBench.active) smoothPacer.Restart(t, re4gx::AutoLevel::kQuiet);
+      if (!benchForcing()) smoothPacer.Restart(t, re4gx::AutoLevel::kQuiet);
     }
     breakRoom = static_cast<int>(frame.room);
     breakPaused = paused;
   }
   const Re4GxChunk *deferred = smoothNext;
   smoothNext = nullptr;
+  const bool fresh = !deferred && !skipNext;  // (a chunk taken ahead or held already is never held again)
   const Re4GxChunk *chunk = deferred ? deferred : skipNext ? skipNext : api.gxAcquire();
   if (chunk == skipNext)
     skipNext = nullptr;
+  // A steady rhythm (0.99.12, a user's Helio G85 phone at 30 FPS on 60 Hz: 46 % of the new pictures two vsyncs apart,
+  // the others 1 and 3 in turn, felt as small frame drops): a new game picture that is ready one vsync after the last
+  // one (that one came late) waits for the next vsync, so every picture shows for two. Only at 30 game pictures a
+  // second without 60 FPS on a screen near 60 Hz, and only while the render thread keeps up (this refresh is the vsync
+  // right after the last new picture); never twice for a chunk (skipNext draws it at the next refresh).
+  if (chunk && fresh && !smoothOn) {
+    const long long nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+    const long long at = displayVsyncAt.load(), period = displayVsyncPeriod.load();
+    const double nowSec = std::chrono::duration<double>(now.time_since_epoch()).count();
+    if (!chunkRate.Sixty(nowSec) && pictureHold.Wait(re4gx::PictureCadence::Snap(nowNs, at, period), period)) {
+      skipNext = chunk;
+      chunk = nullptr;
+      if (pictureHold.held == 1 || pictureHold.held % 600 == 0)
+        LOG("picture pacing: %u new pictures held back one vsync so far (a steady two-vsync rhythm at 30 a second)",
+            pictureHold.held);
+    }
+  }
   // Behind: the core has finished the next chunk already. Then the in-between picture (60 FPS) is
   // left out first: it is a picture more for the screen, and drawing it while behind made the game
   // wait for the renderer (Retroid 26.10.2026: 17-19, with the stalls of the blended vertices 3-5
@@ -2079,6 +2259,8 @@ bool drawGx() {
         }
       }
     }
+    // the core thread's processor time for this chunk (the benchmark; the chunk may go back to the core below)
+    const unsigned chunkCpuUs = chunk->coreCpuUs;
     // the in-between picture first when the switch is on and nothing records this chunk's picture;
     // Run(chunk) then at the next refresh
     bool between = false;
@@ -2099,7 +2281,7 @@ bool drawGx() {
     bool paced = !stream60;
     // (not while the benchmark measures: its 5 s pause ate half of a level's window, the project owner's log
     // 06.11.2026; there every in-between picture the renderer manages counts, the left-out ones too)
-    if (smoothOn && !deferred && smoothPrev && !stream60 && !levelBench.active) {
+    if (smoothOn && !deferred && smoothPrev && !stream60 && !benchForcing()) {
       std::string why;
       paced = smoothPacer.Chunk(std::chrono::duration<double>(now.time_since_epoch()).count(), behind, &why);
       if (!why.empty())
@@ -2112,11 +2294,13 @@ bool drawGx() {
         smoothPrev = nullptr;
         smoothNext = chunk;
         picturesMade++;
+        NotePicture();
       }
     }
     if (!between) {
       gx->Run(*chunk);
       picturesMade++;
+      NotePicture();
       if (smoothPrev) {
         api.gxRelease(smoothPrev);
         smoothPrev = nullptr;
@@ -2168,7 +2352,6 @@ bool drawGx() {
                                                            : optCpuSkip.load() ? "off (60 FPS is on)" : "off");
     }
     const int aim = optAim.load() | (optFarCamera.load() ? 8 : 0)  // bit 3 "Far camera" (patch 0171)
-                    | (optModern.load() ? 16 : 0)                     // bit 4 "Modern controls" (patch 0228)
                     | (optFov.load() + 32) << 24;                     // bits 24.. "Field of view" (patch 0205)
     if (api.setAim && aim != aimSent) {
       api.setAim(aim);
@@ -2205,7 +2388,7 @@ bool drawGx() {
     if (ms > 250.0) {
       const double t = std::chrono::duration<double>(now.time_since_epoch()).count();
       autoLevel.Restart(t);
-      if (!levelBench.active) smoothPacer.Restart(t, re4gx::AutoLevel::kQuiet);
+      if (!benchForcing()) smoothPacer.Restart(t, re4gx::AutoLevel::kQuiet);
     }
     gxRunMax = std::max(gxRunMax, ms);
     gxRunCount++;
@@ -2220,19 +2403,19 @@ bool drawGx() {
       bench.runMs += ms;
       bench.runCount++;
     }
-    levelBenchTick(now, !between);
+    levelBenchTick(now, !between, between ? 0u : chunkCpuUs);
     // the FPS display's level: the one the renderer really draws at (the benchmark's or Dynamic's steps, a new renderer)
     infoScale = gx->Halves();
     // Dynamic: another level from the next chunk on (not while an R3 series or the hit pictures are
     // recorded, the app's menu is open or the GPU measurement runs; never while the benchmark runs: it would set
     // its own level over the benchmark's)
-    if (autoLevelOn && !between && !levelBench.active) {
+    if (autoLevelOn && !between && !benchForcing()) {
       const auto &st = gx->Stats();
       std::string why, status;
       const int level = autoLevel.Chunk(std::chrono::duration<double>(now.time_since_epoch()).count(), st.behindSum,
                                         st.behindChecks,
                                         !corePaused.load() && !gxDumpSeriesLeft && !gxHitShotsLeft && !bench.measuring &&
-                                            !levelBench.active,
+                                            !benchForcing(),
                                         &why, gxBetweenDropped,  // (counts only while 60 FPS is on; never falls back)
                                         gxRunWaitMs,
                                         // 60 FPS making in-between pictures now: a step up by them, not the fences
@@ -2329,7 +2512,7 @@ bool drawGx() {
             s.interpKindUnmatched[2], s.interpKind[2], s.interpKindUnmatched[3], s.interpKind[3], s.interpCameraMoved,
             s.interpOwned, s.interpOwnedNew, s.interpOwnedJumps, s.interpTexBlends, s.interpTexWraps,
             s.interpTevBlends, s.interpLightBlends);
-        if (behind > 2.5 && !levelBench.active) {
+        if (behind > 2.5 && !benchForcing()) {
           smoothTooSlow = true;
           LOG("60 FPS: the GPU does not keep up, in-between pictures off until the renderer starts anew");
         }
@@ -2408,9 +2591,14 @@ bool drawGx() {
   else
     gx->SetShownRows(crop ? 56 : 0, crop ? 392 : 1 << 16);
   // the game computes its 3D for 4:3 (camera.cpp) into 512 x 448 pixels that a television showed
-  // as 10:7; in an exact 4:3 box the 3D is right and the flat draws (HUD, menus, text) are drawn
-  // 15/14 wider by the renderer, so they keep the shape they had on the television
-  gx->SetWiden(format == 3 ? 15.0f / 14.0f : 1.0f);
+  // as 10:7; in the exact 4:3 box of "4:3" the 3D is right. From 0.95 to 0.99.9 the flat draws were
+  // drawn 15/14 wider there (GxRenderer::SetWiden) to keep the television's shape; but the boxes,
+  // frames and gauges of the game's id system are drawn in front of the camera with its projection
+  // and stayed narrower, so the texts in them reached over their left edges (user reports 08.11. and
+  // 11.11.2026: the files' list, the merchant's descriptions). Since 0.99.10 every draw keeps the
+  // picture's own shape in that box: the texts sit in their boxes, nothing reaches past the box's
+  // sides; "4:3 (GC)" shows the television's shape
+  gx->SetWiden(1.0f);
   // the minimap: the Vulkan renderer draws it over the picture in Present (GLES: minimapDraw after it)
   const int mapFormat = format < 0 && aspect && std::string(aspect) == "4:3" ? 1 : format;
   if (gx->Api() == re4gx::GxApi::kVulkan) {
@@ -2428,17 +2616,16 @@ bool drawGx() {
                 xh ? float(rows) / float(xh) : 1.f);
   } else if (format == 3) {
     // 4:3 without the bars: the picture's lines fill the height of an exact 4:3 box (wish of the
-    // project owner, 29.10.2026: no bars, nothing cut off, the user interface in its shape; before,
-    // a 10:7 box in the lines' own shape); a 4:3 screen is full
+    // project owner, 29.10.2026: no bars, nothing cut off; before, a 10:7 box in the lines' own
+    // shape); a 4:3 screen is full. Everything in the picture's shape (0.99.10, see SetWiden above)
     int boxW = width, boxH = static_cast<int>(width * 3.0 / 4.0 + 0.5);
     if (boxH > height) {
       boxH = height;
       boxW = static_cast<int>(height * 4.0 / 3.0 + 0.5);
     }
     gx->Present((width - boxW) / 2, (height - boxH) / 2, boxW, boxH);
-    // taps go by the flat layer (the sub screens): its 512 pixels span the box 15/14 times
-    const int layerW = static_cast<int>(boxW * 15.0 / 14.0 + 0.5);
-    notePicture((width - layerW) / 2, (height - boxH) / 2, layerW, boxH, 0.f, 1.f);
+    // taps go by the flat layer (the sub screens): its 512 pixels span the box (since 0.99.10)
+    notePicture((width - boxW) / 2, (height - boxH) / 2, boxW, boxH, 0.f, 1.f);
   } else if (format == 1 || (format < 0 && aspect && std::string(aspect) == "4:3")) {
     // the whole picture: 640 wide in a 4:3 frame of 480 lines (the XFB holds xh of them)
     int boxW = width, boxH = width * 3 / 4;
@@ -2645,6 +2832,8 @@ void useCoreProcess(const std::string &why) {
   api.setHudLayout = re4ipc_set_hud_layout;
   api.touch = re4ipc_touch;
   api.aimTurn = re4ipc_aim_turn;
+  api.zoom = re4ipc_zoom;
+  api.setEnemyRandom = re4ipc_set_enemy_random;
   api.swipe = re4ipc_swipe;
   api.slash = re4ipc_slash;
   api.instant = re4ipc_instant;
@@ -2860,6 +3049,15 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ast_re4decomp_CoreBridge_audioSur
 // System.nanoTime = CLOCK_MONOTONIC): the core's retraces follow the display.
 extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_vsync(JNIEnv *, jclass, jlong ns) {
   if (api.vsync) api.vsync(static_cast<int64_t>(ns));
+  // the display's vsyncs for the pictures' cadence (NotePicture)
+  const long long last = displayVsyncAt.exchange(ns), p = displayVsyncPeriod.load();
+  if (last > 0 && ns > last) {
+    const long long d = ns - last;
+    if (p <= 0 || d < p / 2)
+      displayVsyncPeriod.store(d);  // (the first, or much shorter than thought: start over)
+    else if (d < p * 3 / 2)
+      displayVsyncPeriod.store(p + (d - p) / 16);
+  }
 }
 
 // The room the game is in (for the Java room loader), -1 outside a room.
@@ -3142,6 +3340,59 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setTvFilter(
   if (optTvFilter.exchange(want) != want) LOG("original TV filter: %s", want ? "on" : "off");
 }
 
+// HD textures (the menu, Cheats & Mods; port/docs/textur-lader-plan.md): the player's pack file (.c4tex; "" off), its
+// first level (Sharpness Half), the replacements' budget in MB. "" when it is open (or off), else why not.
+extern "C" JNIEXPORT jstring JNICALL Java_com_ast_re4decomp_CoreBridge_setTexturePack(JNIEnv *env, jclass, jstring path,
+                                                                                      jboolean half, jint budgetMb) {
+  std::string file;
+  if (path) {
+    const char *chars = env->GetStringUTFChars(path, nullptr);
+    if (chars) {
+      file = chars;
+      env->ReleaseStringUTFChars(path, chars);
+    }
+  }
+  std::string error;
+  std::shared_ptr<re4gx::TexPack> pack;
+  {
+    std::lock_guard<std::mutex> lock(texPackLock);
+    pack = texPack;
+  }
+  if (file.empty()) {
+    pack.reset();
+  } else if (!pack || pack->Path() != file) {
+    // opened here (the header, the index's checksum, every entry: a few hundred KB), handed to the renderer at its next
+    // picture; the old one stays open until the renderer let go of it
+    auto opened = std::make_shared<re4gx::TexPack>();
+    if (opened->Open(file, &error)) {
+      LOG("HD textures: %s, %zu images (%zu dropped), size %u, %s", opened->Info("name").c_str(), opened->Count(),
+          opened->Dropped(), opened->MaxSide(), file.c_str());
+      pack = std::move(opened);
+    } else {
+      LOG("HD textures: %s cannot be used: %s", file.c_str(), error.c_str());
+      pack.reset();
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(texPackLock);
+    if (pack != texPack || texPackLevel != (half ? 1u : 0u))
+      LOG("HD textures: %s%s, budget %d MB", pack ? "on" : "off", pack && half ? ", sharpness half" : "", budgetMb);
+    texPack = std::move(pack);
+    texPackLevel = half ? 1u : 0u;
+    texPackBudget = static_cast<std::size_t>(std::max(16, std::min(4096, static_cast<int>(budgetMb)))) << 20;
+  }
+  return env->NewStringUTF(error.c_str());
+}
+
+// what the renderer did with the HD textures so far: replaced, looked up, the replacements' bytes on the GPU now
+extern "C" JNIEXPORT jlongArray JNICALL Java_com_ast_re4decomp_CoreBridge_texturePackUse(JNIEnv *env, jclass) {
+  const jlong v[3] = {static_cast<jlong>(texPackReplaced.load()), static_cast<jlong>(texPackLooked.load()),
+                      static_cast<jlong>(texPackBytes.load())};
+  jlongArray out = env->NewLongArray(3);
+  if (out) env->SetLongArrayRegion(out, 0, 3, v);
+  return out;
+}
+
 // PSone demake (the menu): the 3D as the PlayStation drew it and a 320-wide, 15-bit picture (GxRenderer::SetPsx).
 extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setPsx(JNIEnv *, jclass, jboolean on) {
   const int want = on ? 1 : 0;
@@ -3156,8 +3407,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setLaserColo
 }
 
 // The benchmark (the menu, Display -> GRAPHICS; LevelBench): start and cancel; the state as {phase, run (0: the 30,
-// 1: the 60 FPS pass), level in halves, result with 30, result with 60, pictures a second * 10, held bits}.
-extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_startBenchmark(JNIEnv *, jclass) {
+// 1: the 60 FPS pass), level in halves, result with 30, result with 60, pictures a second * 10, held bits, the
+// processor sign (0.99.10), mode}. Since 0.99.10 `mode` 0 the level search from `top` (halves) after `warmup`
+// seconds, 1 the check of a profile (benchmarkMeasure, finishBenchmark).
+extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_startBenchmark(JNIEnv *, jclass, jint mode, jint top,
+                                                                                  jint warmup) {
+  if (levelBench.active) return;
+  levelBench.mode = mode == 1 ? 1 : 0;
+  levelBench.top = top >= 2 && top <= 8 ? top : 8;
+  levelBench.warmup = warmup > 0 && warmup <= 60 ? static_cast<double>(warmup) : 0.0;
   levelBench.ask = 1;
 }
 
@@ -3165,12 +3423,28 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_cancelBenchm
   levelBench.ask = 2;
 }
 
+// The check's end (mode 1): back to where the game was.
+extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_finishBenchmark(JNIEnv *, jclass) {
+  levelBench.ask = 3;
+}
+
 extern "C" JNIEXPORT jintArray JNICALL Java_com_ast_re4decomp_CoreBridge_benchmarkState(JNIEnv *env, jclass) {
   const LevelBench &b = levelBench;
-  const jint v[7] = {b.phase.load(), b.run.load(), b.level.load(), b.res30.load(), b.res60.load(), b.rate10.load(),
-                     b.held.load()};
-  jintArray out = env->NewIntArray(7);
-  if (out) env->SetIntArrayRegion(out, 0, 7, v);
+  const jint v[10] = {b.phase.load(), b.run.load(), b.level.load(), b.res30.load(), b.res60.load(), b.rate10.load(),
+                      b.held.load(), b.cpuSign.load(), b.mode.load(), b.cpuLoad.load()};
+  jintArray out = env->NewIntArray(10);
+  if (out) env->SetIntArrayRegion(out, 0, 10, v);
+  return out;
+}
+
+// The check's seconds since the last call (and from now on anew): {seconds, game pictures, pictures shown, weak
+// seconds, the levels in halves summed}.
+extern "C" JNIEXPORT jintArray JNICALL Java_com_ast_re4decomp_CoreBridge_benchmarkMeasure(JNIEnv *env, jclass) {
+  LevelBench &b = levelBench;
+  const jint v[5] = {b.mSeconds.exchange(0), b.mChunks.exchange(0), b.mShown.exchange(0), b.mWeak.exchange(0),
+                     b.mLevels.exchange(0)};
+  jintArray out = env->NewIntArray(5);
+  if (out) env->SetIntArrayRegion(out, 0, 5, v);
   return out;
 }
 
@@ -3201,6 +3475,21 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setFlares(JN
 extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setFxaa(JNIEnv *, jclass, jboolean on) {
   const int want = on ? 1 : 0;
   if (optFxaa.exchange(want) != want) LOG("FXAA: %s", want ? "on" : "off");
+}
+
+// CRT (the menu, 0.99.9): the picture as a tube TV showed it (GxRenderer::SetCrt); 0 off, 1 light, 2 strong.
+extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setCrt(JNIEnv *, jclass, jint level) {
+  const int want = level < 0 ? 0 : level > 2 ? 2 : level;
+  if (optCrt.exchange(want) != want)
+    LOG("CRT: %s", want == 2 ? "strong" : want == 1 ? "light" : "off");
+}
+
+// Colour (the menu, 0.99.9; GxRenderer::SetColour): mode 0 off, 1 warm film, 2 survival horror; level 1 light,
+// 2 strong.
+extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setColour(JNIEnv *, jclass, jint mode, jint level) {
+  const int m = mode < 0 || mode > 2 ? 0 : mode, l = level >= 2 ? 2 : 1;
+  if (optColour.exchange(m * 4 + l) != m * 4 + l)
+    LOG("colour: %s, %s", m == 1 ? "warm film" : m == 2 ? "survival horror" : "off", l == 2 ? "strong" : "light");
 }
 
 // Sharpen (the menu, 0.99.2): a contrast-adaptive sharpening of every picture after FXAA, movies left out
@@ -3240,6 +3529,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setVertexRin
 // Swipe aiming (CoreInput.takeAimSwipe): the touch area's finger as angles (cores since 29.10.2026).
 extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_aimTurn(JNIEnv *, jclass, jfloat yaw, jfloat pitch) {
   if (api.aimTurn) api.aimTurn(yaw, pitch);
+}
+
+// The mouse wheel (CoreActivity): notches, up positive; the core zooms the scope and the binoculars by them (cores
+// since 12.11.2026, 0.99.12; older ones: nothing).
+extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_zoom(JNIEnv *, jclass, jint notches) {
+  if (api.zoom) api.zoom(notches);
+}
+
+// The cheat "Random enemies" (CoreMenu): its seed, 0 off (cores since 12.11.2026, 0.99.12; older ones: nothing).
+extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setEnemyRandom(JNIEnv *, jclass, jint seed) {
+  if (api.setEnemyRandom) api.setEnemyRandom(seed);
 }
 
 // Gyro aiming (GyroAim.java): the turn rates to the core (cores since 19.10.2026; older ones: none).
@@ -3419,11 +3719,4 @@ extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_reportHang(J
     usleep(200000);
   }
   if (crashFd >= 0) fsync(crashFd);
-}
-
-// "Modern controls" (the menu, Controls): the left stick moves Leon the way it points, as the camera sees it
-// (patch 0228), sent with the aim settings (bit 4).
-extern "C" JNIEXPORT void JNICALL Java_com_ast_re4decomp_CoreBridge_setModernControls(JNIEnv *, jclass, jboolean on) {
-  const int want = on == JNI_TRUE ? 1 : 0;
-  if (optModern.exchange(want) != want) LOG("modern controls: %s", want ? "on" : "off");
 }

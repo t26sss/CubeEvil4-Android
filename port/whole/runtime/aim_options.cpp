@@ -33,7 +33,6 @@ std::atomic<int> gInvert(-1);       // the app's "Invert vertical", -1 before it
 std::atomic<int> gLock(-1);         // the app's "Auto aim", -1 before it sent anything
 std::atomic<bool> gRun(false);      // the app's "Always run"
 std::atomic<bool> gFar(false);      // the app's "Far camera" (patch 0171)
-std::atomic<bool> gModern(false);   // the app's "Modern controls" (patch 0228)
 std::atomic<int> gFov(0);           // the app's "Field of view" in degrees, -15 .. 15 (patch 0205)
 
 // The field of view from the aim bits: bits 24..29 hold degrees + 32 (0: an app without it, as the game).
@@ -108,7 +107,6 @@ struct StartSetting {
             gLock = (bits >> 1) & 1;
             gRun = (bits & 4) != 0;
             gFar = (bits & 8) != 0;
-            gModern = (bits & 16) != 0;
             gHooked = true;
             gPending = true;
             re4_add_frame_hook(hook);
@@ -121,7 +119,7 @@ struct StartSetting {
 extern "C" {
 
 // The app (core_api.cpp re4_core_set_aim): bit 0 "Invert vertical", bit 1 "Auto aim", bit 2 "Always run",
-// bit 3 "Far camera", bit 4 "Modern controls" (0.99.10), bits 8..19 the aim speed in percent, bits 24..29 "Field of view" (degrees + 32; 0.98.4).
+// bit 3 "Far camera", bits 8..19 the aim speed in percent, bits 24..29 "Field of view" (degrees + 32; 0.98.4).
 // Any thread.
 void re4_aim_set(int bits)
 {
@@ -132,30 +130,21 @@ void re4_aim_set(int bits)
     const int lock = (bits >> 1) & 1;
     const bool run = (bits & 4) != 0;
     const bool far = (bits & 8) != 0;
-    const bool modern = (bits & 16) != 0;
     const bool inverted = gInvert.exchange(invert) != invert;
     const bool faster = gSpeed.exchange(speed) != speed;
     const bool locked = gLock.exchange(lock) != lock;
     const bool ran = gRun.exchange(run) != run;
     const bool farther = gFar.exchange(far) != far;
-    const bool moderner = gModern.exchange(modern) != modern;
     const int fov = fovOf(bits);
     const bool wider = gFov.exchange(fov) != fov;
-    if (inverted || faster || locked || ran || farther || wider || moderner) {
-        re4_log("aim: stick aiming %s, speed %d %%, auto aim %s, always run %s, far camera %s, field of view %+d degrees, modern controls %s",
-                invert ? "inverted" : "normal", speed, lock ? "on" : "off", run ? "on" : "off", far ? "on" : "off", fov,
-                modern ? "on" : "off");
+    if (inverted || faster || locked || ran || farther || wider) {
+        re4_log("aim: stick aiming %s, speed %d %%, auto aim %s, always run %s, far camera %s, field of view %+d degrees",
+                invert ? "inverted" : "normal", speed, lock ? "on" : "off", run ? "on" : "off", far ? "on" : "off", fov);
     }
     if (!gHooked.exchange(true)) {
         re4_add_frame_hook(hook);
     }
     gPending.store(true);
-}
-
-// Patch 0228 (player.cpp): the app's "Modern controls" (bit 4 of the aim bits).
-int re4_modern_controls(void)
-{
-    return gModern.load(std::memory_order_relaxed) ? 1 : 0;
 }
 
 // Patch 0171 (cam_qfps.cpp): the shoulder camera further back while walking and standing.

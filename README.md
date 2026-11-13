@@ -71,10 +71,38 @@ If you do not own the game, please buy it: the remake (see above) or one of the 
   aiming with the right stick); touch controls when no controller is connected, with touch in the
   inventory; comfort controls: gyro aiming, knife by swipe, latching L, R and B; with a controller,
   X, Y, L1, R1, L3 and R3 can take other functions (Controller Configuration).
-  SELECT opens the app menu (graphics, sound, controls, performance, cheats, memory card, error report).
+  SELECT opens the app menu (graphics, sound, controls, performance, cheats & mods, memory card, error
+  report).
+- Optional HD textures: the app can load a texture pack in the Dolphin format that you obtained yourself,
+  after converting it on a PC or with the Android packer app (see "HD texture packs" below). CubeEvil4
+  includes no textures.
 - Android 7.0 or later, OpenGL ES 3.0.
 
 ## Requirements
+
+### Here are some recommendations regarding CPU/GPU combinations to help you gauge how well CubeEvil4 might run on your device...
+
+| Class | SoC | GPU | Suitability |
+|:-----:|-----|-----|-------------|
+| **A** | Snapdragon 8 Elite Gen 6 / Extreme Gen 6 | Adreno 845 (and Extreme variant) | Remake-level, high resolution, ray tracing experiments |
+| **A** | Snapdragon 8 Elite Gen 5 | Adreno 840 | as above, currently widespread |
+| **A** | Snapdragon 8 Elite (Gen 1) | Adreno 830 | as above |
+| **A** | MediaTek Dimensity 9500 / 9600 Pro | Mali-G1 Ultra | as above, driver testing required |
+| **B** | Snapdragon 8 Gen 3 | Adreno 750 | CubeEvil4 at 60 fps and high resolution |
+| **B** | Snapdragon 8 Gen 2 | Adreno 740 | as above |
+| **B** | Dimensity 9300 / 9400 | Immortalis-G720 / G925 | as above |
+| **C** | Snapdragon 8 Gen 1 / 8+ Gen 1 | Adreno 730 | CubeEvil4 runs smoothly, 60 fps usually possible |
+| **C** | Snapdragon 8s Gen 3 | Adreno 735 | as above |
+| **C** | Snapdragon 888 / 870 / 865 | Adreno 660 / 650 | CubeEvil4 at 30–60 fps with moderate resolution |
+| **D** | Snapdragon 7 series, 695 / 778G | Adreno 619–642 | CubeEvil4 at 30 fps, reduced resolution |
+| **D** | Dimensity 900 / 920, Exynos 1280 / 1380 | Mali-G68 MC4 | similar, depends on driver |
+| **D** | Dimensity 8xxx (older) | Mali-G610 | similar, often better than G68 |
+| **E** | Dimensity 700 / 720 / 810 / 800U | Mali-G57 MC2–MC3 | with heavily reduced resolution (approx. 480–720p) and graphics, 30 fps not guaranteed |
+| **E** | Helio G99 / G96 | Mali-G57 MC2 | as above |
+| **E** | Helio G80 / G85 / G88, Exynos 850, Unisoc T606 / T610 / T618 | Mali-G52 MC1–MC2 | borderline, often stutters |
+| **E** | Snapdragon 4 series, Helio G35 and similar | Adreno 610 and below / Mali-G52 MC1 | not recommended |
+
+### Here are the recommended minimum requirements for CubeEvil4...
 
 | | Minimum | Recommended |
 |---|---|---|
@@ -173,6 +201,33 @@ in the GameCube's colours, as before); the switch takes effect at once and keeps
   latched: Leon keeps running).
 
 The controller (or the device) vibrates where the game uses the rumble, if it can.
+
+**HD texture packs (optional)** (app menu → Cheats & Mods → Mods)
+
+CubeEvil4 can replace the game's textures with sharper ones from a texture pack in the Dolphin format
+(`tex1_<width>x<height>_<hash>_<format>.dds/.png/.jpg`), as Dolphin does. **CubeEvil4 includes no textures,
+offers none and links to none.** Use only packs you obtained yourself and may use. The packer reads DDS (BC1, BC2,
+BC3, BC4, BC5, BC7 and uncompressed; not BC6H), PNG and JPG (baseline and progressive; not CMYK). When a pack has the
+same texture as several files, it takes the DDS, then the PNG, then the JPG.
+
+1. Convert the pack with the **CubeEvil4 Texture Packer**, on a Windows PC or on the device itself:
+   - **Windows:** `CubeEvil4-TexturePacker.exe` (a file of its own on the release page; source in
+     `port/tools/texpack`). Start it, drag the pack's folder or its ZIP file into its window and choose the
+     size: 256 (about 0.27 GB for a full pack, saves memory on weak phones), 512 (recommended, about 0.72 GB)
+     or 1024 (about 2.3 GB, for strong devices).
+   - **Android:** the app **CubeEvil4 Texture Packer** (an APK of its own on the release page, Android 7 and
+     later; source in `port/android-decomp/packer`). Choose the pack's ZIP file or folder, the size and the
+     storage; it shows the file's size and about how long it takes on this device (a phone needs far longer
+     than a PC: keep it on the charger). The ZIP is read as it is, nothing is unpacked; the finished file goes
+     into the Download folder, then "Import into CubeEvil4" hands it over.
+
+   No image becomes smaller than the game's own texture. Both make the same file,
+   `CubeEvil4-textures-512.c4tex`, and never change the pack.
+2. Import the `.c4tex` file in the app menu (Cheats & Mods → Import texture pack), or with the Android
+   packer's button. The app keeps it in a folder of its own; it never touches your discs, saves or memory
+   cards. Afterwards you can delete the file in Download or the copy you made.
+3. Switch the HD textures on or off at any time, choose "Sharpness: Half" on weaker devices, or delete the
+   pack. Textures the pack does not have, and pictures the game makes itself, stay as they are.
 
 ## Building the app
 
@@ -314,6 +369,9 @@ is that the output bytes never change.
   preservation only.
 - **No game data.** No game data, disc images, BIOS or other copyrighted assets are included or
   distributed. You need your own legally obtained copy of the game.
+- **No texture packs.** CubeEvil4 includes no replacement textures and links to none. Its texture loader
+  and the CubeEvil4 Texture Packer only read packs you converted yourself from material you obtained
+  yourself, as in Dolphin. Texture packs are the work of their authors; they are not part of this project.
 - **No warranty.** The app is provided "as is", without any warranty. Use it at your own risk.
 - **Our own work.** The build scripts, tools, Android app shell, configuration and documentation
   written for this project are released under CC0, see `LICENSE`. This does not extend to any
