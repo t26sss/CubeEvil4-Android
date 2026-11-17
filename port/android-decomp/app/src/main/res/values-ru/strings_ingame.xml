@@ -30,6 +30,8 @@
     <string name="ingame_flares_lens">Блики объектива</string>
     <string name="ingame_flares_both">Ореолы + блики</string>
     <string name="ingame_flares_help">Блики объектива: слабые цветные кольца через всё изображение от самых ярких источников света, как в объективе камеры. Ореолы + блики: дополнительно мягкое свечение с тонкой звездой у свечей, факелов и ламп.</string>
+    <string name="ingame_bloom">Bloom</string>
+    <string name="ingame_bloom_help">Bloom: самые яркие места сцены (лампы, огонь, солнечный свет) мягко светятся вокруг себя; тёмные комнаты остаются тёмными, интерфейс и меню остаются чёткими. Выключен, пока включена настройка режима Potato.</string>
     <string name="ingame_dof">Глубина резкости</string>
     <string name="ingame_info_hud">Информационный HUD</string>
     <string name="ingame_hud_fps">FPS игры/экрана</string>
@@ -58,8 +60,10 @@
     <string name="ingame_view_normal">Обычная</string>
     <string name="ingame_view_medium">Средняя</string>
     <string name="ingame_view_short">Короткая</string>
+    <string name="ingame_view_very_short">Нет</string>
+    <string name="ingame_view_far">Большая</string>
     <string name="ingame_potato_help">Погодные эффекты: клубы тумана, дождь, брызги воды. Спецэффекты: пар, марево, вода. Эффекты частиц: кровь, пыль, дым, брызги, искры и огонь; «Меньше» рисует половину, «Нет» убирает всё, кроме огня и взрывов, которые остаются наполовину как предупреждение. Тени и свет: выключение убирает тени (и в роликах), блики и лучи света; освещение комнат остаётся. Каждая настройка снижает нагрузку на графику на слабых устройствах; место попадания, подсказки, лазер и все эффекты в роликах остаются.</string>
-    <string name="ingame_view_help">Дальность обзора: «Средняя» и «Короткая» приближают дальний туман, а то, что за ним, не рисуется. Это помогает там, где игру тормозит процессор или количество объектов, то есть на более слабых телефонах при низком разрешении: в деревне исчезает примерно половина объектов. При высоком разрешении графический чип занят пикселями и выигрывает мало. Помещения без дальнего тумана и те, где туман намного дальше всего видимого (замок, остров), не меняются.</string>
+    <string name="ingame_view_help">Дальность обзора: «Средняя», «Короткая» и «Нет» приближают дальний туман, а то, что за ним, не рисуется. Это помогает там, где игру тормозит процессор или количество объектов, то есть на более слабых телефонах при низком разрешении: в деревне исчезает примерно половина объектов. При высоком разрешении графический чип занят пикселями и выигрывает мало. «Нет» — самая короткая: густой туман уже рядом, для медленных телефонов; то, что рядом с вами, рисуется как обычно. «Большая» оставляет туман игры, но рисует дальше, пока туман не скроет всё, так что далёкие деревья и дома больше не выскакивают из него внезапно: небольшое изменение, которое стоит чуть дороже. Помещения без дальнего тумана и те, где туман намного дальше всего видимого (замок, остров), не меняются.</string>
     <string name="ingame_resolution_line">Разрешение: %1$d × %2$d пикс. (уровень %3$s) · экран %4$d × %5$d · применяется после закрытия меню. Более высокие уровни требуют больше ресурсов.</string>
     <string name="ingame_resolution_line_auto">Разрешение: %1$d × %2$d пикселей (динамическое, %3$s уровень) · разрешение %4$d × %5$d · применится после закрытия меню. Динамическое разрешение снижает уровень, пока видеокарта не успеет отрисовать нужную частоту кадров.</string>
 
@@ -84,12 +88,15 @@
     <string name="ingame_far_camera">Дальняя камера</string>
     <string name="ingame_auto_aim_help">Автоприцел: когда вы поднимаете оружие, прицел перескакивает на ближайшего врага впереди и ненадолго следует за ним (встроенная помощь прицеливания игры).</string>
     <string name="ingame_always_run_help">Всегда бежать: Леон бежит, как только вы двигаетесь; удерживайте кнопку бега (например, B), чтобы идти шагом.</string>
+    <string name="ingame_gentle_qte">Мягкие QTE (Professional)</string>
+    <string name="ingame_gentle_qte_help">Мягкие QTE: в Professional события с кнопками (уклонение, бой на ножах, быстрое нажатие) дают столько же времени и требуют столько же нажатий, как в Normal; урон и враги остаются как в Professional. Палец на изображении нажимает кнопки подсказки сразу при касании экрана, на любой сложности.</string>
     <string name="ingame_far_camera_help">Держит камеру из-за плеча чуть дальше позади Леона при ходьбе и на месте. При прицеливании и в тесных местах она приближается, как раньше; переходы плавные.</string>
     <string name="ingame_touch_aim">Прицеливание касанием</string>
     <string name="ingame_aim_move_stick">Стик движения</string>
     <string name="ingame_aim_touch_area">Сенсорная зона</string>
     <string name="ingame_aim_c_stick">C-стик</string>
     <string name="ingame_touch_aim_help">Прицеливание касанием: пока L или R держит оружие наготове, сенсорная зона целится движением пальца по правой половине (прицел следует за пальцем и останавливается вместе с ним) или сенсорный C-стик целится как стик (добавьте его шестерёнкой справа вверху). Стик движения: как на GameCube.</string>
+    <string name="ingame_touch_zoom_help">Зум в прицеле или бинокле на сенсорном экране: проведите вверх или вниз по правой половине (при прицеливании стиком движения или C-стиком) или по сенсорному C-стику, либо добавьте кнопки зума + и − через шестерёнку справа вверху (они работают, пока вы их держите).</string>
     <string name="ingame_gyro_sensitivity">Чувствительность гироскопа</string>
     <string name="ingame_gyro_invert_v">Инвертировать по вертикали</string>
     <string name="ingame_gyro_invert_h">Инвертировать по горизонтали</string>
@@ -107,10 +114,15 @@
     <string name="ingame_update_page">Новый выпуск откроется на GitHub: скачайте там APK и установите его.</string>
 
     <string name="ingame_card">Карта памяти (слот A)</string>
-    <string name="ingame_card_help">Экспорт и импорт игровых данных: сохранения в формате .gci (для Dolphin или GameCube) и ваша собственная сенсорная раскладка в CubeEvil4-touch-layout.json. Импорт восстанавливает и то, и другое.</string>
+    <string name="ingame_card_help">Экспорт игровых данных: сохранения в формате .gci (для Dolphin или GameCube) вместе с вашей сенсорной раскладкой в CubeEvil4-touch-layout.json или всё в одном .zip (сохранения, мгновенное сохранение, RetroTouch и настройки приложения). Импорт всё восстанавливает. «Удалить все данные» очищает карту памяти.</string>
     <string name="ingame_card_busy">Карта памяти занята (игра сохраняет или загружает) или игра ещё загружается — закройте меню и откройте его снова чуть позже.</string>
     <string name="ingame_card_none">Нет карты памяти.</string>
     <string name="ingame_export">Экспорт игровых данных (.gci)</string>
+    <string name="ingame_export_zip">Экспорт игровых данных (.zip)</string>
+    <string name="ingame_wipe">Удалить все данные</string>
+    <string name="ingame_wipe_text">Все сохранения на карте памяти и мгновенное сохранение будут удалены, как при форматировании карты. RetroTouch останется (ваша сенсорная раскладка и её настройки), а также диски, HD-текстуры и настройки приложения. Это нельзя отменить: чтобы не потерять сохранения, сначала экспортируйте их (.zip). Игра для этого перезапустится.</string>
+    <string name="ingame_wipe_cancel">Отмена</string>
+    <string name="ingame_wipe_yes">Удалить</string>
     <string name="ingame_import">Импорт игровых данных (.gci, .zip, .raw)</string>
     <string name="ingame_discs">Диски</string>
     <string name="ingame_discs_help">Чтобы играть в другую версию: игра завершится, и вы импортируете оба её диска на стартовом экране. Сохранения, карта памяти и настройки останутся.</string>
@@ -125,7 +137,7 @@
     <string name="ingame_report_send">Отправить отчёт …</string>
     <string name="ingame_report_save">Сохранить отчёт …</string>
 
-    <string name="ingame_source">Исходный код</string>
+    <string name="ingame_source">Исходный код и обновления</string>
     <string name="ingame_source_line">Подробнее об этом порте: %1$s</string>
     <string name="ingame_no_browser">На этом устройстве нет браузера</string>
 
@@ -172,6 +184,27 @@
     <string name="ingame_touch_imported">Сенсорная раскладка импортирована и сразу действует.</string>
     <string name="ingame_touch_skipped">Сенсорная раскладка пропущена: ваша остаётся.</string>
     <string name="ingame_touch_import_bad">Сенсорная раскладка не импортирована: %1$s</string>
+    <plurals name="ingame_backup_saved">
+        <item quantity="one">%1$d файл карты памяти сохранён в %2$s.</item>
+        <item quantity="few">%1$d файла карты памяти сохранены в %2$s.</item>
+        <item quantity="many">%1$d файлов карты памяти сохранены в %2$s.</item>
+        <item quantity="other">Файлов карты памяти сохранено в %2$s: %1$d.</item>
+    </plurals>
+    <string name="ingame_backup_with_instant">С мгновенным сохранением.</string>
+    <string name="ingame_backup_with_touch">С вашей сенсорной раскладкой.</string>
+    <string name="ingame_backup_with_settings">С настройками приложения и RetroTouch.</string>
+    <string name="ingame_backup_instant_imported">Мгновенное сохранение импортировано.</string>
+    <string name="ingame_backup_instant_exists">У вас уже есть мгновенное сохранение. Заменить его импортированным?</string>
+    <string name="ingame_backup_instant_skipped">Мгновенное сохранение пропущено: ваше остаётся.</string>
+    <string name="ingame_backup_instant_bad">Мгновенное сохранение не импортировано: %1$s</string>
+    <string name="ingame_backup_settings_exists">Заменить ваши настройки импортированными (управление, RetroTouch, игра, графика и звук)?</string>
+    <string name="ingame_backup_settings_imported">Настройки импортированы.</string>
+    <string name="ingame_backup_settings_skipped">Настройки пропущены: ваши остаются.</string>
+    <string name="ingame_backup_settings_same">Настройки: такие же, как ваши.</string>
+    <string name="ingame_backup_settings_bad">Настройки не импортированы: %1$s</string>
+    <string name="ingame_backup_graphics_kept">Резервная копия сделана на другом устройстве (%1$s): разрешение, рендерер и остальные настройки производительности этого устройства остаются.</string>
+    <string name="ingame_backup_newer">Файл из более новой версии (%1$s): настройки, которых нет в этой версии, пропущены.</string>
+    <string name="ingame_backup_restart">Игра перезапустится, чтобы применить импортированные настройки. Несохранённый прогресс будет потерян.</string>
     <string name="ingame_report_chooser">Отправить отчёт об ошибках</string>
     <string name="ingame_report_failed">Не удалось создать отчёт: %1$s</string>
     <string name="ingame_capture_saved">Снимок графики сохранён</string>
@@ -192,7 +225,7 @@
     <string name="ingame_display_summary">Разрешение, формат и эффекты</string>
     <string name="ingame_controls_summary">Сенсор, гироскоп и удобство</string>
     <string name="ingame_performance_summary">Мощные ядра, 60 FPS и счётчик</string>
-    <string name="ingame_management_summary">Карта памяти, диски, отчёты и исходники</string>
+    <string name="ingame_management_summary">Карта памяти, диски, отчёты, исходники и обновления</string>
     <string name="ingame_audio">Звук</string>
     <string name="ingame_audio_summary">Музыка и звуковые эффекты</string>
     <string name="ingame_cheats_summary">Общее, оружие, деньги и текстуры</string>
@@ -283,7 +316,7 @@
     <string name="ingame_cheat_random_items">Случайные предметы</string>
     <string name="ingame_cheat_random_items_help">Случайные предметы: предметы, лежащие в комнатах сюжета (патроны, травы и другие лечебные предметы, гранаты, песеты, сокровища), заново распределяются в каждой комнате, в которую вы входите с этого момента, и комната всегда даёт одни и те же предметы, пока вы не выключите и снова не включите эту функцию. Ключи, оружие, документы и другие сюжетные предметы остаются как есть, поэтому игру всегда можно пройти. Уже подобранное остаётся подобранным; враги, бочки и ящики сохраняют свою добычу. Не в Assignment Ada и The Mercenaries.</string>
     <string name="ingame_cheat_random_enemies">Случайные враги</string>
-    <string name="ingame_cheat_random_enemies_help">Случайные враги: в комнатах сюжета обычные ганадо стоят в других местах, где стоял враг, и в комнате может быть на одного врага меньше или больше; комната всегда выглядит одинаково, пока вы не выключите и снова не включите опцию. Боссы, торговец, Эшли, Луис, особые враги, волны и комнаты, где события считают врагов, остаются как есть, поэтому игру всегда можно пройти. Сохранения остаются игровыми. Со следующей комнаты; не в Assignment Ada, The Mercenaries и в части за Эшли.</string>
+    <string name="ingame_cheat_random_enemies_help">Случайные враги: во многих комнатах обычные ганадо стоят в других местах, в нескольких метрах от своих, а в комнатах, где их 10 или больше, становится на одного меньше или больше (от 20: до двух; где игра считает своих врагов, меняются только места). Деревня в начале главы 1 и комнаты, событиям которых нужны определённые враги, остаются как есть, как и боссы, торговец, Эшли, Луис, особые враги и волны, поэтому игру всегда можно пройти. Комната каждый раз выглядит одинаково, пока вы не выключите и снова не включите опцию; сохранения остаются игровыми. Со следующей комнаты; не в Assignment Ada, The Mercenaries и в части за Эшли.</string>
     <string name="ingame_cheat_extras">Открыть доп. игры</string>
     <string name="ingame_cheat_extras_text">Assignment Ada и The Mercenaries открыты (а также Professional, как после прохождения игры). Главное меню покажет их после перезапуска. Прогресс с последнего сохранения будет потерян.</string>
     <string name="ingame_cheat_extras_later">Открыто: Assignment Ada и The Mercenaries появятся в главном меню после следующего перезапуска.</string>
@@ -324,6 +357,10 @@
     <string name="ingame_act_left">Влево</string>
     <string name="ingame_act_back">Назад</string>
     <string name="ingame_act_forward">Вперёд</string>
+    <string name="ingame_act_c_up">C-стик вверх (приблизить)</string>
+    <string name="ingame_act_c_down">C-стик вниз (отдалить)</string>
+    <string name="ingame_act_c_left">C-стик влево</string>
+    <string name="ingame_act_c_right">C-стик вправо</string>
     <string name="ingame_map_swapped">%1$s теперь на %2$s.</string>
     <string name="ingame_map_fixed_key">Эта кнопка закреплена (крестовина, подтвердить, назад).</string>
     <string name="ingame_map_use_keyboard">Нажмите клавишу клавиатуры.</string>
@@ -336,6 +373,7 @@
     <string name="ingame_map_press">Нажмите кнопку …</string>
     <string name="ingame_map_keyboard">Клавиатура и мышь</string>
     <string name="ingame_mouse_help">Мышь (Android 8 и новее) принадлежит игре во время игры: движение поворачивает камеру, при прицеливании двигает прицел, в бинокле — взгляд. Колесо приближает и отдаляет в оптическом прицеле и бинокле (вверх — ближе). Меню приложения (F1) освобождает указатель.</string>
+    <string name="ingame_keyboard_c_help">Нож: удерживайте его клавишу и двигайте мышь, чтобы целиться, как с оружием. Клавиши C-стика (I, K, J, L, если вы их не меняли) поворачивают камеру и меняют зум прицела и бинокля (вверх — приблизить, вниз — отдалить), как колесо мыши.</string>
     <string name="ingame_mouse_sensitivity">Чувствительность мыши</string>
     <string name="ingame_map_controller">Контроллер</string>
     <string name="ingame_map_device">Устройство</string>
@@ -377,7 +415,7 @@
     <string name="ingame_limit_none">ничего заметного</string>
     <string name="ingame_bench_welcome">Добро пожаловать в CubeEvil4</string>
     <string name="ingame_bench_redo">Измерить заново</string>
-    <string name="ingame_bench_redo_text">Новое: тест теперь измеряет и процессор, чтобы предложение лучше подходило этому устройству. Ваши настройки не меняются, пока вы не примете новое предложение.</string>
+    <string name="ingame_bench_redo_text">Новое: тест теперь оставляет запас для более тяжёлых мест, чтобы разрешение во время игры оставалось стабильным. Ваши настройки не меняются, пока вы не примете новое предложение.</string>
     <string name="ingame_bench_text">Приложение измеряет возможности устройства и предлагает лучшие настройки. Для этого игра переходит к причалу у озера (дождь, вода, туман), а камера вращается вокруг персонажа. Это займёт около 2–3 минут; звук выключен. Затем вы вернётесь туда, где были. B / Назад отменяет.</string>
     <string name="ingame_bench_first_note">Это будет предложено снова при следующем запуске.</string>
     <string name="ingame_bench_start">Начать измерение</string>

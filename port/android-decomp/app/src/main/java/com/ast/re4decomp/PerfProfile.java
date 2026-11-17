@@ -39,21 +39,28 @@ final class PerfProfile {
    * A benchmark of before 0.99.12 (no processor share, BENCH_CPU_LOAD missing) is made again once, as on the first
    * start (decision of the project owner, 12.11.2026: "Ja nach einem Update einer älteren Version soll der Benchmark
    * neu gemacht werden"): popup 1 with the reason, benchmark 1, popup 2, on Accept benchmark 2 and popup 3; B / Back
-   * puts it off to the next start until it ran. BENCH_REDO holds the version the redo was due for (REDO_CPU), so it
-   * comes once a device; the settings stay the player's unless the new suggestion is accepted.
+   * puts it off to the next start until it ran. BENCH_REDO holds the version the redo was due for (REDO_CPU, since
+   * 0.99.14 REDO_RESERVE), so it comes once a device; the settings stay the player's unless the new suggestion is
+   * accepted. 0.99.14: a benchmark without BENCH_RESERVE (its levels measured without the GPU's reserve, the project
+   * owner's Retroid: 3x for 60 FPS at 86-98 % of a picture's time, too much in heavier rooms; "Dynamic" now goes up to
+   * the measured level and no further) is made again once the same way.
    */
   static final String BENCH_REDO = "benchRedo";
-  static final int REDO_CPU = 12;
+  static final int REDO_CPU = 12, REDO_RESERVE = 14;
+  /** 0.99.14: the levels were measured with the GPU's reserve (core_mode.cpp, gx_bench_steps.h kGpuReserve). */
+  static final String BENCH_RESERVE = "benchReserve";
   /** 1 the first start's benchmark is to come, 2 the menu asks once (an update), 0 nothing (FIRST_*). */
   static final String FIRST = "benchFirst";
   static final int FIRST_NONE = 0, FIRST_PENDING = 1, FIRST_ASK = 2;
 
   /** The settings a profile sets, in this order (booleans as 0/1). */
   static final String[] KEYS = {"scaleHalves", "samples", "fxaa", "anisotropy", "smooth60", CoreMenu.FRAME_SKIP,
-      "fastCores", "weatherEffects", "specialEffects", "particleEffects", "shadowsLight", CoreBridge.VIEW_DISTANCE};
+      "fastCores", "weatherEffects", "specialEffects", "particleEffects", "shadowsLight", CoreBridge.VIEW_DISTANCE,
+      CoreMenu.BLOOM_LEVEL};
   static final int SCALE = 0, SAMPLES = 1, FXAA = 2, ANISO = 3, SMOOTH = 4, SKIP = 5, CORES = 6, WEATHER = 7,
-      SPECIAL = 8, PARTICLES = 9, SHADOWS = 10, VIEW = 11;
-  private static final boolean[] BOOL = {false, false, true, false, true, false, false, true, true, false, true, false};
+      SPECIAL = 8, PARTICLES = 9, SHADOWS = 10, VIEW = 11, BLOOM = 12;
+  private static final boolean[] BOOL = {false, false, true, false, true, false, false, true, true, false, true, false,
+      false};
 
   private PerfProfile() {}
 
@@ -126,16 +133,17 @@ final class PerfProfile {
 
   static boolean lowMemory(Device d) { return d.ramMb > 0 && d.ramMb < 2800; }
 
-  /** A finished benchmark without the processor share (before 0.99.12), not redone yet, nothing else pending. */
+  /** A finished benchmark without the GPU's reserve (before 0.99.14; those before 0.99.12 also without the processor
+   *  share), not redone for 0.99.14 yet, nothing else pending. */
   static boolean redoDue(SharedPreferences g) {
-    return g.getInt(BENCH_REDO, 0) < REDO_CPU && g.getLong(BENCH_DATE, 0) > 0 && !g.contains(BENCH_CPU_LOAD)
+    return g.getInt(BENCH_REDO, 0) < REDO_RESERVE && g.getLong(BENCH_DATE, 0) > 0 && !g.contains(BENCH_RESERVE)
         && g.getInt(FIRST, FIRST_NONE) == FIRST_NONE;
   }
 
   /** When redoDue: the first start's benchmark once more (FIRST_PENDING), marked for this version; true when so. */
   static boolean scheduleRedo(SharedPreferences g) {
     if (!redoDue(g)) return false;
-    g.edit().putInt(FIRST, FIRST_PENDING).putInt(BENCH_REDO, REDO_CPU).apply();
+    g.edit().putInt(FIRST, FIRST_PENDING).putInt(BENCH_REDO, REDO_RESERVE).apply();
     return true;
   }
 
@@ -212,6 +220,8 @@ final class PerfProfile {
       v[WEATHER] = 1; v[SPECIAL] = 1; v[PARTICLES] = 0; v[SHADOWS] = 1;
       v[VIEW] = cpu || tight ? 1 : 0;
     }
+    // bloom (0.99.13): "Light" only on strong devices, High with headroom beyond the screen's level (as MSAA)
+    v[BLOOM] = bloomFor(profile, room, screenLevel(d), cpu || tight);
     return v;
   }
 
@@ -230,6 +240,12 @@ final class PerfProfile {
       return new int[] {msaa, msaa == 1 && room >= 4 ? 1 : 0, room >= 6 ? 8 : room >= 3 ? 4 : 1};
     }
     return new int[] {1, 0, 1};
+  }
+
+  /** The bloom of a profile (0.99.13, the project owner: "Ja, einbauen"; off by default): 1 "Light" for High where
+   *  the chip holds more than the screen's level (`room` above `screen`) and the processor is not near its end; else 0. */
+  static int bloomFor(int profile, int room, int screen, boolean cpuBusy) {
+    return profile == HIGH && !cpuBusy && room - screen >= 1 ? 1 : 0;
   }
 
   static int clampSamples(int want, int max) {
@@ -309,6 +325,7 @@ final class PerfProfile {
     v[PARTICLES] = CoreBridge.particleEffects(g);
     v[SHADOWS] = g.getBoolean("shadowsLight", true) ? 1 : 0;
     v[VIEW] = CoreBridge.viewDistance(g);
+    v[BLOOM] = CoreMenu.bloomLevel(g);
     return v;
   }
 

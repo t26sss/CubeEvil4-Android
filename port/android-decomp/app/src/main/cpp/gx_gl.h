@@ -43,6 +43,7 @@ struct GxStats {
   unsigned sharpenPasses = 0;    // display copies sharpened (SetSharpen)
   unsigned colourPasses = 0;     // display copies graded (SetColour)
   unsigned crtPasses = 0;        // display copies made into the CRT's lines and glow (SetCrt)
+  unsigned bloomPasses = 0;      // pictures whose scene's bright parts glow (SetBloom)
   unsigned depthSnapshots = 0;   // depth maps taken for the game's GXPeekZ (BP 0x5B, the core's marker)
   unsigned depthDelivered = 0;   // of them handed to the core
   unsigned handedCopies = 0;     // EFB copies the renderer before handed over (HandOverCopies)
@@ -56,6 +57,16 @@ struct GxStats {
   std::size_t hdBytesNow = 0;
   // time in UploadHd: the key and lookup, reading the file, the GPU upload (microseconds, summed)
   std::uint64_t hdKeyUs = 0, hdReadUs = 0, hdUploadUs = 0;
+  // T4 (0.99.18), the reads in the background: asked for, put in place of the game's texture, dropped (the texture or
+  // the pack went first); waiting now; the loader thread's reading (not the render thread's) and the longest wait
+  // from the request to the replacement on the screen (microseconds)
+  unsigned hdQueued = 0, hdSwapped = 0, hdStale = 0;
+  std::size_t hdWaitingNow = 0;
+  std::uint64_t hdLoaderReadUs = 0, hdWaitMaxUs = 0;
+  // 0.99.14: the render thread's loading (microseconds, summed): HD textures (UploadHd), shader programs (GL) and
+  // shaders and pipelines (Vulkan) made on it. "Dynamic" (gx_auto_level.h) does not judge a window with much of it:
+  // pictures late while it loads are not the resolution's doing
+  std::uint64_t loadUs = 0;
   unsigned shaderErrors = 0;
   unsigned programsLive = 0;     // programs kept now (at most 3000, RE4_GX_MAX_PROGRAMS)
   unsigned programsDeleted = 0;  // programs deleted that went longest unused (EvictPrograms)
@@ -114,7 +125,8 @@ struct GxStats {
   enum { kSplitDraw, kSplitUniform, kSplitBind, kSplitState, kSplitProgram, kSplitTexture, kSplitBp, kSplitXf,
          kSplitVertices, kSplitRest, kSplitKinds };
   unsigned long long splitNs[kSplitKinds] = {};
-  // GPU time of the chunks (EXT_disjoint_timer_query; 0 when the driver has none)
+  // GPU time of the chunks (EXT_disjoint_timer_query; 0 when the driver has none); since 0.99.14 Vulkan's too (the
+  // timestamps of each frame's work, a picture's, ReadGpuTime), for "Dynamic" (gx_auto_level.h)
   unsigned long long gpuMicros = 0;
   unsigned gpuTimed = 0;
   // the pictures put on the screen (Present, once per display refresh) and their GPU time
@@ -314,6 +326,11 @@ public:
   // With the lens flares on: the soft glow and fine star at each light too (true, the default: the menu's "Halos +
   // lens flares"), or only the coloured ghosts towards the picture's centre (false: "Lens flares"; 0.99.6).
   void SetFlareHalos(bool on);
+  // Bloom (0.99.13, the project owner: "Ja, einbauen"; 0 off, the default, 1 light, 2 strong): after the scene's
+  // last 3D draw and before the HUD, its bright parts (above a threshold) glow softly over their surroundings (a
+  // picture of one texel per 4 x 4 game pixels, blurred, added into the EFB); not where "Halos + lens flares" draw
+  // their halo, not on the game's menu screens. Takes effect with the next chunk.
+  void SetBloom(int level);
   // the menu's depth of field "Strong" (0.98.4): the gameplay autofocus blurs more and wider than "Light"
   void SetDofStrong(bool on);
   // HD textures (port/docs/textur-lader-plan.md): the player's texture pack (null: none), the first of each

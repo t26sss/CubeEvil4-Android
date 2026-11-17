@@ -44,6 +44,8 @@ final class TouchControls implements CoreTouch.Host {
     void send();
     /** R3 of the touch controls went down or up: the graphics capture. */
     void r3(boolean down);
+    /** A zoom button (the editor's + or -) went down or up: 1 in, -1 out (CoreBridge.zoom while held). */
+    void zoom(int direction, boolean down);
   }
 
   /** The key of the saved layout (RetroTouch keeps the player's layout under it). */
@@ -59,6 +61,10 @@ final class TouchControls implements CoreTouch.Host {
   // build the layout again with it once the editor closes
   private float shoulder = TouchStyle.SHOULDER_ASPECT;
   private boolean reshape;
+  // the camera cutout's safe insets {left, top, right, bottom} and the view's size (the whole window since 0.99.17):
+  // the default layout lies in the safe area, a layout of before 0.99.17 is written for the camera's side (TouchFrame)
+  private final int[] safe = new int[4];
+  private int width, height;
   // the devices counted as controllers at the last update, for the log
   private String devices = "";
 
@@ -87,11 +93,14 @@ final class TouchControls implements CoreTouch.Host {
       applyStyle(style);
       Log.i(CoreActivity.TAG, "touch controls: button style " + style + " (editor)");
     });
-    // L and R as wide as the screen has room for next to the gear (4:3)
+    // L and R as wide as the screen has room for next to the gear (4:3); the layouts for the view's size (TouchFrame)
     view.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
       float aspect = TouchStyle.shoulderAspect(right - left, bottom - top, v.getResources().getDisplayMetrics().density);
-      if (aspect == shoulder) return;
+      final boolean sized = right - left != width || bottom - top != height;
+      if (aspect == shoulder && !sized) return;
       shoulder = aspect;
+      width = right - left;
+      height = bottom - top;
       if (editing) reshape = true;
       else reshape();
     });
@@ -120,6 +129,12 @@ final class TouchControls implements CoreTouch.Host {
       @Override public void onEditorStateChanged(boolean on) {
         editing = on;
         touch.reset();
+        // RetroTouch saved its layout as it closed: an old layout the player changed is the whole window's now, the
+        // default saved as it is follows the camera again (TouchFrame)
+        if (!on) {
+          final String what = TouchFrame.afterEditor(prefs(), windowDefaults().toJson());
+          if (!what.isEmpty()) Log.i(CoreActivity.TAG, "touch controls: " + what);
+        }
         if (!on && reshape) reshape();
         Log.i(CoreActivity.TAG, "touch controls: editor " + (on ? "open, the game stands" : "closed"));
         host.editing(on);
@@ -182,10 +197,71 @@ final class TouchControls implements CoreTouch.Host {
   /** The default layout again with L's and R's aspect for this screen (the saved layout read again with it). */
   private void reshape() {
     reshape = false;
-    quietly(() -> view.setGameplayLayout(layout(shoulder)));
+    frame();
+    quietly(() -> view.setGameplayLayout(layout(shoulder, width, height, safe)));
     applyAspects(icons());
     touch.reset();
     Log.i(CoreActivity.TAG, "touch controls: L and R " + shoulder + " times as wide as high in the icon style");
+  }
+
+  /**
+   * The camera cutout's safe insets {left, top, right, bottom} of the window (CoreActivity, at each change: laid out,
+   * turned by 180 degrees): the layouts again for the camera's side (TouchFrame), after the editor when it is open.
+   */
+  void setSafeInsets(int[] insets) {
+    if (java.util.Arrays.equals(insets, safe)) return;
+    System.arraycopy(insets, 0, safe, 0, 4);
+    // RetroTouch 1.0.0-beta.11: its editor's bar, the "DRAG / Selected" line and the gear's default place keep clear of
+    // the camera; the controls and their saved places are not touched
+    view.setSafeInsets(safe[0], safe[1], safe[2], safe[3]);
+    if (width <= 0 || height <= 0) return;  // the first layout does it
+    if (editing) reshape = true;
+    else reshape();
+  }
+
+  /** The safe insets the layouts follow now. */
+  int[] safeInsets() { return safe.clone(); }
+
+  /**
+   * A layout saved before 0.99.17 kept once as the safe area's, and written for the camera's side now (TouchFrame);
+   * RetroTouch reads it with the next setGameplayLayout.
+   */
+  private void frame() {
+    if (width <= 0 || height <= 0) return;
+    final android.content.SharedPreferences p = prefs();
+    if (TouchFrame.migrate(p)) Log.i(CoreActivity.TAG, "touch controls: the layout saved before 0.99.17 kept as it was");
+    if (TouchFrame.legacyApply(p, width, height, safe)) {
+      Log.i(CoreActivity.TAG, "touch controls: the layout of before 0.99.17 at its places for the camera "
+          + Cutout.side(safe) + " (" + width + "x" + height + ")");
+    }
+  }
+
+  /** RetroTouch's preferences (TouchLayoutFile.PREFS). */
+  private android.content.SharedPreferences prefs() {
+    return view.getContext().getSharedPreferences(TouchLayoutFile.PREFS, Context.MODE_PRIVATE);
+  }
+
+  /** The default layout of this window: laid into the safe area of the camera's side now (what RESET gives). */
+  RetroTouchLayout windowDefaults() { return layout(shoulder, width, height, safe); }
+
+  /** The default layout in a safe area (the whole layout without insets): the centres move with the safe area. */
+  static RetroTouchLayout layout(float shoulder, int width, int height, int[] safe) {
+    if (!TouchFrame.moves(width, height, safe)) return layout(shoulder);
+    List<RetroTouchControl> controls = new ArrayList<>();
+    for (CoreTouch.Control c : CoreTouch.LAYOUT) {
+      final float x = (float) TouchFrame.place(c.x, width, safe[0], safe[2]);
+      final float y = (float) TouchFrame.place(c.y, height, safe[1], safe[3]);
+      if (c.kind == CoreTouch.LOOK) {
+        // the look zone: the same part of the safe area (its edge at the camera's strip)
+        controls.add(RetroTouchControl.lookZone(c.id, x, y, (float) TouchFrame.extent(c.width, width, safe[0], safe[2]),
+            (float) TouchFrame.extent(c.height, height, safe[1], safe[3])));
+      } else {
+        // round and shaped controls: their size (RetroTouch: the smaller of width x the view's width and height x its
+        // height) is the height's in landscape, the same in both frames
+        controls.add(control(c, x, y, shoulder));
+      }
+    }
+    return new RetroTouchLayout(LAYOUT_ID, controls);
   }
 
   /**
@@ -196,23 +272,23 @@ final class TouchControls implements CoreTouch.Host {
   private static RetroTouchLayout layout(float shoulder) {
     List<RetroTouchControl> controls = new ArrayList<>();
     for (CoreTouch.Control c : CoreTouch.LAYOUT) {
-      switch (c.kind) {
-        case CoreTouch.LOOK:
-          controls.add(RetroTouchControl.lookZone(c.id, c.x, c.y, c.width, c.height));
-          break;
-        case CoreTouch.STICK:
-          controls.add(RetroTouchControl.moveStick(c.id, c.x, c.y, c.width));
-          break;
-        case CoreTouch.DPAD:
-          controls.add(RetroTouchControl.dPad(c.id, c.x, c.y, c.width));
-          break;
-        default:
-          controls.add(RetroTouchControl.button(c.id, c.action, CoreTouch.label(c.action), c.x, c.y, c.width, null,
-              RetroTouchButtonShape.AUTO, TouchStyle.aspect(c.action, shoulder)));
-          break;
-      }
+      if (c.kind == CoreTouch.LOOK) controls.add(RetroTouchControl.lookZone(c.id, c.x, c.y, c.width, c.height));
+      else controls.add(control(c, c.x, c.y, shoulder));
     }
     return new RetroTouchLayout(LAYOUT_ID, controls);
+  }
+
+  /** A stick, a D-pad or a button of the default layout with its centre at x, y. */
+  private static RetroTouchControl control(CoreTouch.Control c, float x, float y, float shoulder) {
+    switch (c.kind) {
+      case CoreTouch.STICK:
+        return RetroTouchControl.moveStick(c.id, x, y, c.width);
+      case CoreTouch.DPAD:
+        return RetroTouchControl.dPad(c.id, x, y, c.width);
+      default:
+        return RetroTouchControl.button(c.id, c.action, CoreTouch.label(c.action), x, y, c.width, null,
+            RetroTouchButtonShape.AUTO, TouchStyle.aspect(c.action, shoulder));
+    }
   }
 
   /** The app's own layout, RetroTouch's "reset" (TouchLayoutFile: is the saved one the player's own?). */
@@ -223,7 +299,8 @@ final class TouchControls implements CoreTouch.Host {
    * shows a layout, now when the controls are shown, else the next time they are.
    */
   void reloadSaved() {
-    quietly(() -> view.setGameplayLayout(layout(shoulder)));
+    frame();
+    quietly(() -> view.setGameplayLayout(layout(shoulder, width, height, safe)));
     touch.reset();
     Log.i(CoreActivity.TAG, "touch controls: the saved layout read again (" + (shown ? "shown" : "hidden") + ")");
   }
@@ -313,6 +390,8 @@ final class TouchControls implements CoreTouch.Host {
   @Override public void latched(String action, boolean on) { view.setActionLatched(action, on); }
 
   @Override public void r3(boolean down) { host.r3(down); }
+
+  @Override public void zoom(int direction, boolean down) { host.zoom(direction, down); }
 
   /** Before the window's touch event goes to the views (CoreActivity.dispatchTouchEvent). */
   void before(MotionEvent e) {

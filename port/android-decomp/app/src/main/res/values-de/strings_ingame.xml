@@ -30,6 +30,8 @@
     <string name="ingame_flares_lens">Lens Flares</string>
     <string name="ingame_flares_both">Lichthöfe + Lens Flares</string>
     <string name="ingame_flares_help">Lens Flares: schwache farbige Ringe quer durchs Bild, die von den hellsten Lichtern ausgehen, wie bei einem Kameraobjektiv. Lichthöfe + Lens Flares: zusätzlich ein weicher Schein mit feinem Stern an Kerzen, Fackeln und Lampen.</string>
+    <string name="ingame_bloom">Bloom</string>
+    <string name="ingame_bloom_help">Bloom: Die hellsten Stellen der Szene (Lampen, Feuer, Sonnenlicht) leuchten weich in ihre Umgebung; dunkle Räume bleiben dunkel, Anzeigen und Menüs bleiben scharf. Aus, solange eine Einstellung des Potato-Modus an ist.</string>
     <string name="ingame_dof">Tiefenschärfe</string>
     <string name="ingame_info_hud">Information HUD</string>
     <string name="ingame_hud_fps">FPS Spiel/Display</string>
@@ -58,8 +60,10 @@
     <string name="ingame_view_normal">Normal</string>
     <string name="ingame_view_medium">Mittel</string>
     <string name="ingame_view_short">Kurz</string>
+    <string name="ingame_view_very_short">Keine</string>
+    <string name="ingame_view_far">Weit</string>
     <string name="ingame_potato_help">Wettereffekte: Nebelschwaden, Regen, Wasserspritzer. Spezialeffekte: Dampf, Hitzeflimmern, Wasser. Partikeleffekte: Blut, Staub, Rauch, Spritzer, Funken und Feuer; „Weniger“ zeichnet die Hälfte davon, „Keine“ lässt alles weg außer Feuer und Explosionen, die als Warnung zur Hälfte bleiben. Schatten &amp; Licht: Aus lässt Schatten (auch in Zwischensequenzen), Lichtschein und Lichtstrahlen weg; die Beleuchtung der Räume bleibt. Jede Einstellung spart Grafikleistung auf schwächeren Geräten; die Stelle eines Treffers, Hinweise, der Laser und alle Effekte in Zwischensequenzen bleiben.</string>
-    <string name="ingame_view_help">Sichtweite: Mittel und Kurz holen den Distanznebel näher heran, und was dahinter liegt, wird nicht gezeichnet. Das hilft, wo der Prozessor oder die Menge an Objekten das Spiel bremst, also auf schwächeren Handys bei niedriger Auflösung: Im Dorf fällt etwa die Hälfte der Objekte weg. Bei hoher Auflösung ist der Grafikchip mit den Pixeln beschäftigt und gewinnt wenig. Räume ohne Distanznebel und solche, deren Nebel weit hinter allem Sichtbaren liegt (Burg, Insel), bleiben, wie sie sind.</string>
+    <string name="ingame_view_help">Sichtweite: Mittel, Kurz und Keine holen den Distanznebel näher heran, und was dahinter liegt, wird nicht gezeichnet. Das hilft, wo der Prozessor oder die Menge an Objekten das Spiel bremst, also auf schwächeren Handys bei niedriger Auflösung: Im Dorf fällt etwa die Hälfte der Objekte weg. Bei hoher Auflösung ist der Grafikchip mit den Pixeln beschäftigt und gewinnt wenig. Keine ist die kürzeste: dichter Nebel schon in der Nähe, für langsame Handys; was nah bei dir ist, wird wie immer gezeichnet. Weit lässt den Nebel des Spiels, zeichnet aber weiter, bis der Nebel alles verdeckt: Ferne Bäume und Häuser tauchen nicht mehr plötzlich aus ihm auf. Eine kleine Änderung, die etwas mehr kostet. Räume ohne Distanznebel und solche, deren Nebel weit hinter allem Sichtbaren liegt (Burg, Insel), bleiben, wie sie sind.</string>
     <string name="ingame_resolution_line">Auflösung: %1$d × %2$d Pixel (Stufe %3$s) · Bildschirm %4$d × %5$d · gilt, sobald das Menü schließt. Höhere Stufen brauchen mehr Leistung.</string>
     <string name="ingame_resolution_line_auto">Auflösung: %1$d × %2$d Pixel (Stufe %3$s, Dynamisch) · Bildschirm %4$d × %5$d · gilt, sobald das Menü schließt. Dynamisch geht eine Stufe tiefer, solange der Grafikchip nicht mitkommt.</string>
 
@@ -84,12 +88,15 @@
     <string name="ingame_far_camera">Kamera weiter weg</string>
     <string name="ingame_auto_aim_help">Auto-Zielen: Beim Anlegen der Waffe springt das Ziel auf den nächsten Gegner vor dir und folgt ihm einen Moment (die eingebaute Zielhilfe des Spiels).</string>
     <string name="ingame_always_run_help">Immer laufen: Leon läuft, sobald du dich bewegst; halte die Lauftaste (z. B. B), um stattdessen zu gehen.</string>
+    <string name="ingame_gentle_qte">Sanftere QTEs (Professional)</string>
+    <string name="ingame_gentle_qte_help">Sanftere QTEs: In Professional lassen die Tastenaufforderungen (Ausweichen, Messerkampf, schnelles Drücken) so viel Zeit und brauchen so viele Drücke wie in Normal; Schaden und Gegner bleiben wie in Professional. Ein Finger auf dem Bild drückt die Tasten einer Aufforderung schon beim Aufsetzen, in jedem Schwierigkeitsgrad.</string>
     <string name="ingame_far_camera_help">Hält die Schulterkamera beim Laufen und Stehen etwas weiter hinter Leon. Beim Zielen und an engen Stellen kommt sie wie bisher nah heran; dazwischen gleitet sie weich.</string>
     <string name="ingame_touch_aim">Touch-Zielen</string>
     <string name="ingame_aim_move_stick">Bewegungsstick</string>
     <string name="ingame_aim_touch_area">Touchfläche</string>
     <string name="ingame_aim_c_stick">C-Stick</string>
     <string name="ingame_touch_aim_help">Touch-Zielen: Solange L oder R eine Waffe bereithält, zielt die Touchfläche durch Wischen auf der rechten Hälfte (das Ziel folgt deinem Finger und bleibt stehen, wenn er stehen bleibt) oder der Touch-C-Stick wie ein Stick (über das Zahnrad oben rechts hinzufügen). Bewegungsstick: wie am GameCube.</string>
+    <string name="ingame_touch_zoom_help">Zoomen im Zielfernrohr oder Fernglas per Touch: auf der rechten Hälfte nach oben oder unten ziehen (beim Zielen mit Bewegungsstick oder C-Stick) oder am Touch-C-Stick, oder mit dem Zahnrad oben rechts die Zoom-Knöpfe + und − hinzufügen (sie zoomen, solange du sie hältst).</string>
     <string name="ingame_gyro_sensitivity">Gyro-Empfindlichkeit</string>
     <string name="ingame_gyro_invert_v">Vertikal umkehren</string>
     <string name="ingame_gyro_invert_h">Horizontal umkehren</string>
@@ -107,10 +114,15 @@
     <string name="ingame_update_page">Das neueste Release öffnet sich auf GitHub: Lade dort die APK herunter und installiere sie.</string>
 
     <string name="ingame_card">Speicherkarte (Steckplatz A)</string>
-    <string name="ingame_card_help">Spieldaten exportieren und importieren: die Spielstände als .gci (für Dolphin oder GameCube) und ein eigenes Touch-Layout als CubeEvil4-touch-layout.json. Der Import holt beides zurück.</string>
+    <string name="ingame_card_help">Spieldaten exportieren: die Spielstände als .gci (für Dolphin oder GameCube) mit einem eigenen Touch-Layout als CubeEvil4-touch-layout.json, oder alles in einer .zip (Spielstände, Instant-Spielstand, RetroTouch und die Einstellungen der App). Der Import holt es zurück. „Alle Daten löschen“ leert die Speicherkarte.</string>
     <string name="ingame_card_busy">Die Karte wird gerade benutzt (das Spiel speichert oder lädt) oder das Spiel lädt noch – Menü schließen und gleich noch einmal öffnen.</string>
     <string name="ingame_card_none">Keine Speicherkarte.</string>
     <string name="ingame_export">Spieldaten exportieren (.gci)</string>
+    <string name="ingame_export_zip">Spieldaten exportieren (.zip)</string>
+    <string name="ingame_wipe">Alle Daten löschen</string>
+    <string name="ingame_wipe_text">Alle Spielstände auf der Speicherkarte und der Instant-Spielstand werden gelöscht, als wäre die Karte formatiert. RetroTouch bleibt (dein Touch-Layout und seine Einstellungen), ebenso die Discs, die HD-Texturen und die Einstellungen der App. Das lässt sich nicht rückgängig machen: Wenn du deine Spielstände behalten willst, exportiere sie vorher (.zip). Das Spiel startet dafür neu.</string>
+    <string name="ingame_wipe_cancel">Abbrechen</string>
+    <string name="ingame_wipe_yes">Löschen</string>
     <string name="ingame_import">Spieldaten importieren (.gci, .zip, .raw)</string>
     <string name="ingame_discs">Discs</string>
     <string name="ingame_discs_help">Für eine andere Version: Das Spiel endet, und du importierst ihre beiden Discs auf dem Startbildschirm. Spielstände, Speicherkarte und Einstellungen bleiben erhalten.</string>
@@ -125,7 +137,7 @@
     <string name="ingame_report_send">Bericht senden …</string>
     <string name="ingame_report_save">Bericht speichern …</string>
 
-    <string name="ingame_source">Quelle</string>
+    <string name="ingame_source">Quelle und Updates</string>
     <string name="ingame_source_line">Mehr zu dieser Portierung unter %1$s</string>
     <string name="ingame_no_browser">Kein Browser auf diesem Gerät</string>
 
@@ -168,6 +180,25 @@
     <string name="ingame_touch_imported">Touch-Layout importiert: gilt ab sofort.</string>
     <string name="ingame_touch_skipped">Touch-Layout übersprungen: deins bleibt.</string>
     <string name="ingame_touch_import_bad">Touch-Layout nicht importiert: %1$s</string>
+    <plurals name="ingame_backup_saved">
+        <item quantity="one">%1$d Datei der Speicherkarte gespeichert in %2$s.</item>
+        <item quantity="other">%1$d Dateien der Speicherkarte gespeichert in %2$s.</item>
+    </plurals>
+    <string name="ingame_backup_with_instant">Mit dem Instant-Spielstand.</string>
+    <string name="ingame_backup_with_touch">Mit deinem Touch-Layout.</string>
+    <string name="ingame_backup_with_settings">Mit den Einstellungen der App und von RetroTouch.</string>
+    <string name="ingame_backup_instant_imported">Instant-Spielstand importiert.</string>
+    <string name="ingame_backup_instant_exists">Du hast schon einen Instant-Spielstand. Durch den importierten ersetzen?</string>
+    <string name="ingame_backup_instant_skipped">Instant-Spielstand übersprungen: deiner bleibt.</string>
+    <string name="ingame_backup_instant_bad">Instant-Spielstand nicht importiert: %1$s</string>
+    <string name="ingame_backup_settings_exists">Deine Einstellungen durch die importierten ersetzen (Steuerung, RetroTouch, Spiel, Grafik und Ton)?</string>
+    <string name="ingame_backup_settings_imported">Einstellungen importiert.</string>
+    <string name="ingame_backup_settings_skipped">Einstellungen übersprungen: deine bleiben.</string>
+    <string name="ingame_backup_settings_same">Einstellungen: dieselben wie deine.</string>
+    <string name="ingame_backup_settings_bad">Einstellungen nicht importiert: %1$s</string>
+    <string name="ingame_backup_graphics_kept">Die Sicherung stammt von einem anderen Gerät (%1$s): Auflösung, Renderer und die übrigen Leistungs-Einstellungen dieses Geräts bleiben.</string>
+    <string name="ingame_backup_newer">Die Datei stammt aus einer neueren Version (%1$s): Einstellungen, die diese Version nicht kennt, bleiben weg.</string>
+    <string name="ingame_backup_restart">Das Spiel startet neu, um die importierten Einstellungen zu nutzen. Nicht gespeicherter Fortschritt geht verloren.</string>
     <string name="ingame_report_chooser">Fehlerbericht senden</string>
     <string name="ingame_report_failed">Der Bericht konnte nicht erstellt werden: %1$s</string>
     <string name="ingame_capture_saved">Grafikaufnahme gespeichert</string>
@@ -188,7 +219,7 @@
     <string name="ingame_display_summary">Auflösung, Bildformat &amp; Effekte</string>
     <string name="ingame_controls_summary">Touch, Gyro &amp; Komfortsteuerung</string>
     <string name="ingame_performance_summary">Leistungskerne, 60 FPS &amp; Anzeige</string>
-    <string name="ingame_management_summary">Speicherkarte, Discs, Berichte &amp; Quelle</string>
+    <string name="ingame_management_summary">Speicherkarte, Discs, Berichte, Quelle &amp; Updates</string>
     <string name="ingame_audio">Audio</string>
     <string name="ingame_audio_summary">Musik &amp; Soundeffekte</string>
     <string name="ingame_cheats_summary">Allgemein, Waffen, Geld und Texturen</string>
@@ -248,7 +279,7 @@
     <string name="ingame_language_restart_title">Spiel neu starten?</string>
     <string name="ingame_language_restart_text">Die neue Sprache gilt nach einem Neustart des Spiels. Fortschritt seit dem letzten Speichern geht verloren.</string>
     <string name="ingame_restart">Neu starten</string>
-    <string name="ingame_cancel">Abbruch</string>
+    <string name="ingame_cancel">Abbrechen</string>
     <!-- a disc file the game cannot read (CoreActivity.checkDiscProblem) -->
     <string name="ingame_disc_title">Eine Disc-Datei ist nicht lesbar</string>
     <string name="ingame_disc_image">Das Spiel hält bei %1$s (Disc %2$d) an: Im importierten Disc-Abbild weicht diese Datei von der Original-Disc ab, das Abbild ist beschädigt. Lies Disc %2$d neu aus (oder nimm eine andere, intakte Kopie) und importiere sie auf dem Startbildschirm neu. Deine Spielstände bleiben erhalten.</string>
@@ -279,7 +310,7 @@
     <string name="ingame_cheat_random_items">Zufällige Gegenstände</string>
     <string name="ingame_cheat_random_items_help">Zufällige Gegenstände: Die Gegenstände, die in den Räumen der Story liegen (Munition, Kräuter und andere Heilmittel, Granaten, Peseten, Schätze), werden ab dann in jedem Raum, den du betrittst, neu verteilt; ein Raum gibt immer dieselben Gegenstände, bis du den Schalter aus- und wieder einschaltest. Schlüssel, Waffen, Dokumente und andere Story-Gegenstände bleiben, wie sie sind, das Spiel ist also immer schaffbar. Schon Aufgehobenes bleibt aufgehoben; Gegner, Fässer und Kisten behalten ihre eigene Beute. Nicht in Assignment Ada und The Mercenaries.</string>
     <string name="ingame_cheat_random_enemies">Zufällige Gegner</string>
-    <string name="ingame_cheat_random_enemies_help">Zufällige Gegner: In den Räumen der Story stehen die gewöhnlichen Ganados an anderen Stellen, an denen ein Gegner stand, und ein Raum bekommt vielleicht einen Gegner weniger oder einen mehr; ein Raum sieht immer gleich aus, bis du den Schalter aus- und wieder einschaltest. Bosse, der Händler, Ashley, Luis, besondere Gegner, Wellen und Räume, deren Ereignisse Gegner zählen, bleiben, wie sie sind, das Spiel ist also immer schaffbar. Spielstände bleiben die des Spiels. Ab dem nächsten Raum; nicht in Assignment Ada, The Mercenaries und Ashleys Teil.</string>
+    <string name="ingame_cheat_random_enemies_help">Zufällige Gegner: In vielen Räumen stehen die gewöhnlichen Ganados an anderen Stellen, ein paar Meter von ihrer eigenen entfernt, und Räume mit 10 oder mehr von ihnen bekommen einen weniger oder einen mehr (ab 20: bis zu zwei; wo das Spiel seine Gegner zählt, ändern sich nur die Stellen). Das Dorf am Anfang von Kapitel 1 und Räume, deren Ereignisse bestimmte Gegner brauchen, bleiben, wie sie sind, ebenso Bosse, der Händler, Ashley, Luis, besondere Gegner und Wellen – das Spiel ist also immer schaffbar. Ein Raum sieht jedes Mal gleich aus, bis du den Schalter aus- und wieder einschaltest; Spielstände bleiben die des Spiels. Ab dem nächsten Raum; nicht in Assignment Ada, The Mercenaries und Ashleys Teil.</string>
     <string name="ingame_cheat_extras">Extra-Spiele freischalten</string>
     <string name="ingame_cheat_extras_text">Assignment Ada und The Mercenaries sind freigeschaltet (dazu Professional, wie nach dem Durchspielen). Das Titelmenü zeigt sie nach einem Neustart. Fortschritt seit dem letzten Speichern geht verloren.</string>
     <string name="ingame_cheat_extras_later">Freigeschaltet: Assignment Ada und The Mercenaries stehen nach dem nächsten Neustart im Titelmenü.</string>
@@ -320,6 +351,10 @@
     <string name="ingame_act_left">Links</string>
     <string name="ingame_act_back">Rückwärts</string>
     <string name="ingame_act_forward">Vorwärts</string>
+    <string name="ingame_act_c_up">C-Stick hoch (hineinzoomen)</string>
+    <string name="ingame_act_c_down">C-Stick runter (herauszoomen)</string>
+    <string name="ingame_act_c_left">C-Stick links</string>
+    <string name="ingame_act_c_right">C-Stick rechts</string>
     <string name="ingame_map_swapped">%1$s liegt jetzt auf %2$s.</string>
     <string name="ingame_map_fixed_key">Diese Taste ist fest (Steuerkreuz, Bestätigen, Zurück).</string>
     <string name="ingame_map_use_keyboard">Drücke eine Taste der Tastatur.</string>
@@ -332,6 +367,7 @@
     <string name="ingame_map_press">Taste drücken …</string>
     <string name="ingame_map_keyboard">Tastatur &amp; Maus</string>
     <string name="ingame_mouse_help">Die Maus (ab Android 8) gehört im laufenden Spiel dem Spiel: Bewegen dreht die Kamera, beim Zielen bewegt sie das Ziel, im Fernglas den Blick. Das Mausrad zoomt mit Zielfernrohr und Fernglas (nach oben: näher heran). Das App-Menü (F1) gibt den Mauszeiger frei.</string>
+    <string name="ingame_keyboard_c_help">Das Messer: seine Taste halten und mit der Maus zielen, wie bei den Waffen. Die Tasten des C-Sticks (I, K, J, L, solange du sie nicht änderst) drehen die Kamera und zoomen Zielfernrohr und Fernglas (hoch hinein, runter heraus), wie das Mausrad.</string>
     <string name="ingame_mouse_sensitivity">Maus-Empfindlichkeit</string>
     <string name="ingame_map_controller">Controller</string>
     <string name="ingame_map_device">Gerät</string>
@@ -373,7 +409,7 @@
     <string name="ingame_limit_none">nichts Auffälliges</string>
     <string name="ingame_bench_welcome">Willkommen bei CubeEvil4</string>
     <string name="ingame_bench_redo">Neu messen</string>
-    <string name="ingame_bench_redo_text">Neu: Der Benchmark misst jetzt auch den Prozessor, damit der Vorschlag besser zu diesem Gerät passt. Deine Einstellungen bleiben, wie sie sind, solange du den neuen Vorschlag nicht annimmst.</string>
+    <string name="ingame_bench_redo_text">Neu: Der Benchmark lässt jetzt eine Reserve für schwerere Stellen, damit die Auflösung beim Spielen ruhig bleibt. Deine Einstellungen bleiben, wie sie sind, solange du den neuen Vorschlag nicht annimmst.</string>
     <string name="ingame_bench_text">Die App misst, was dieses Gerät schafft, und schlägt die besten Einstellungen vor. Das Spiel springt dafür an den Steg am See (Regen, Wasser, Nebel), die Kamera dreht sich um die Spielfigur. Das dauert etwa 2–3 Minuten, der Ton ist aus. Danach bist du wieder dort, wo du warst. B / Zurück bricht ab.</string>
     <string name="ingame_bench_first_note">Die Messung wird beim nächsten Start wieder angeboten.</string>
     <string name="ingame_bench_start">Messung starten</string>

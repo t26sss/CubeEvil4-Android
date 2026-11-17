@@ -53,6 +53,11 @@ public final class CoreBridge {
    * the game's video retraces follow the display (no drift against 60 Hz).
    */
   public static native void vsync(long frameTimeNanos);
+  /**
+   * The beat's grid (FramePacing.every): the picture drawn at every n-th vsync; on a screen that stays faster than
+   * 60 Hz each picture then asks for its own vsync (0.99.13, core_mode.cpp present::beforeSwap).
+   */
+  public static native void setPictureEvery(int n);
   /** The room the game is in (stage << 8 | room), -1 outside a room. */
   public static native int wantedRoom();
   /** The decoded room archive for a room (RoomRepository), or the error. */
@@ -144,11 +149,41 @@ public final class CoreBridge {
     return g.getBoolean("flares", false) ? 2 : 0;
   }
   /** The Potato mode's "View distance" (0.99.6, wish of the project owner, 09.11.2026, from the OUYA branch): 0 Normal
-   *  (the default, the game's), 1 Medium, 2 Short (the OUYA's setting); in percent of the room's view VIEW_PERCENT. */
+   *  (the default, the game's), 1 Medium, 2 Short; since 0.99.18 (the project owner, 15.11.2026) also 3 Very short
+   *  (the OUYA's setting; the menu calls it "None", ingame_view_very_short) and 4 Far, so a value saved before stays
+   *  what it was; in percent of the room's view
+   *  VIEW_PERCENT (Far: the core decides per room how far it may go, runtime/view_distance.cpp). The menu shows them in
+   *  VIEW_ORDER, from the farthest to the nearest. */
   static final String VIEW_DISTANCE = "viewDistance";
-  static final int[] VIEW_PERCENT = {100, 75, 50};
+  static final int VIEW_NORMAL = 0, VIEW_SHORT = 2, VIEW_VERY_SHORT = 3, VIEW_FAR = 4;
+  static final int[] VIEW_PERCENT = {100, 75, 50, 35, 150};
+  static final int[] VIEW_ORDER = {VIEW_FAR, VIEW_NORMAL, 1, VIEW_SHORT, VIEW_VERY_SHORT};
+  static final int[] VIEW_LABEL = {R.string.ingame_view_normal, R.string.ingame_view_medium, R.string.ingame_view_short,
+      R.string.ingame_view_very_short, R.string.ingame_view_far};
   static int viewDistance(android.content.SharedPreferences g) {
-    return Math.max(0, Math.min(2, g.getInt(VIEW_DISTANCE, 0)));
+    return viewLevel(g.getInt(VIEW_DISTANCE, 0));
+  }
+  /** A saved or profile value as a level (anything unknown: Normal). */
+  static int viewLevel(int v) {
+    return v >= 0 && v < VIEW_PERCENT.length ? v : VIEW_NORMAL;
+  }
+  /** The level after `level` when the menu's button is pressed: Normal, Medium, Short, Very short, Far, Normal ...
+   *  (VIEW_ORDER from the far end round again). */
+  static int nextView(int level) {
+    for (int i = 0; i < VIEW_ORDER.length; i++) {
+      if (VIEW_ORDER[i] == level) return VIEW_ORDER[(i + 1) % VIEW_ORDER.length];
+    }
+    return VIEW_NORMAL;
+  }
+  /** The level the menu shows unlit (the project owner, 15.11.2026: "nur hier nicht gehighlighted"): Very short,
+   *  shown as "None" since then (35 % with thick fog, as before); Far, Normal, Medium and Short are lit. */
+  static boolean viewOff(int level) {
+    return level == VIEW_VERY_SHORT;
+  }
+  /** The eyes after the menu button's text (the project owner, 15.11.2026): 4 Far, 3 Normal, 2 Medium, 1 Short, 0 None
+   *  (a crossed-out eye instead). */
+  static int viewEyes(int level) {
+    return new int[] {3, 2, 1, 0, 4}[viewLevel(level)];
   }
   /** The Potato mode's "Particle effects" (0.99.3): 0 normal (the default), 1 less, 2 none. */
   static int particleEffects(android.content.SharedPreferences g) {
@@ -261,6 +296,14 @@ public final class CoreBridge {
    * what the game draws, not the touch controls nor the app's overlays.
    */
   public static native void setCrt(int level);
+  /** Bloom (0.99.13; core_mode.cpp, GxRenderer::SetBloom): 0 off, 1 light, 2 strong. */
+  public static native void setBloom(int level);
+  /** The bloom the renderer gets: the menu's, off while a Potato mode switch is on (0.99.13). */
+  static int bloomSent(android.content.SharedPreferences g) {
+    // (Far is no Potato setting: the bloom stays, as at Normal)
+    int view = viewDistance(g);
+    return potatoMask(g) == 0 && (view == VIEW_NORMAL || view == VIEW_FAR) ? CoreMenu.bloomLevel(g) : 0;
+  }
   /** Colour (0.99.9): mode 0 off, 1 warm film, 2 survival horror; level 1 light, 2 strong. */
   public static native void setColour(int mode, int level);
   /**
@@ -282,12 +325,20 @@ public final class CoreBridge {
   public static native void zoom(int notches);
   /** The cheat "Random enemies" (CoreMenu, 0.99.12): its seed (20 bits), 0 off; from the next room on. */
   public static native void setEnemyRandom(int seed);
+  /** "Gentler QTEs" (CoreMenu, comfort controls, 0.99.15): Professional's quick-time events as Normal's
+   *  (runtime/qte_touch.cpp re4_qte_level, patch 0232); cores before 0.99.15 leave it out. */
+  public static native void setGentleQte(boolean on);
   /**
    * A tap on the picture at (x, y) pixels of the surface (CoreActivity): the core uses it in the
    * game's sub screens (runtime/menu_touch.cpp: tabs, the attache case, its command menu); cores
    * before 22.10.2026 ignore it.
    */
   public static native void tap(float x, float y);
+  /** A finger touching down beside the touch controls (0.99.15): a quick-time prompt's press at once (the tap at the
+   *  finger's lift then only goes to the sub screens). */
+  public static native void touchDown();
+  /** Android's thermal status (-1 unknown) and headroom (NaN unknown) for the lines of Dynamic (ThermalWatch, 0.99.15). */
+  public static native void setThermal(int status, float headroom);
   /** A swipe across the picture: 1 to the left (the next tab of the game's sub screen), -1 to the right. */
   public static native void swipe(int dir);
   /**

@@ -97,7 +97,7 @@ public class CoreMenuLayoutTest {
   }
 
   @Test public void allPagesFitAcrossLanguagesWidthsAndFontScales() throws Exception {
-    String[] languages = {"en", "de", "es", "fr", "it", "pt", "ru", "ar", "zh", "hi"};
+    String[] languages = {"en", "de", "es", "fr", "it", "pt", "ru", "ar", "zh", "hi", "in"};
     CoreMenu.Host host = (CoreMenu.Host) Proxy.newProxyInstance(CoreMenu.Host.class.getClassLoader(),
         new Class<?>[] {CoreMenu.Host.class},
         // gameLanguages: the home page with the European discs' "Game language" too
@@ -229,7 +229,7 @@ public class CoreMenuLayoutTest {
     return y;
   }
 
-  private static Button findButton(View view, String start) {
+  static Button findButton(View view, String start) {
     if (view instanceof Button && ((Button) view).getText().toString().startsWith(start)) return (Button) view;
     if (view instanceof ViewGroup) {
       ViewGroup g = (ViewGroup) view;
@@ -269,21 +269,53 @@ public class CoreMenuLayoutTest {
     assertEquals(1, AppUpdate.compare("0.96.0-beta", "0.95.2-beta"));
     try (var controller = Robolectric.buildActivity(Activity.class).create()) {
       Activity activity = controller.get();
+      setVersion(activity, "0.99.18-rc-core");
       CoreMenu menu = new CoreMenu(activity, null, false, 1920, 1080);
       Button update = (Button) field(menu, "update"), resume = (Button) field(menu, "resume");
-      assertEquals("hidden until GitHub answered", View.GONE, update.getVisibility());
-      menu.showUpdate(AppUpdate.CURRENT);
+      TextView version = (TextView) field(menu, "versionLabel");
       View root = (View) field(menu, "root");
-      measure(root, Math.round(960 * activity.getResources().getDisplayMetrics().density),
-          Math.round(300 * activity.getResources().getDisplayMetrics().density));
+      int width = Math.round(960 * activity.getResources().getDisplayMetrics().density);
+      int height = Math.round(300 * activity.getResources().getDisplayMetrics().density);
+      assertEquals("hidden until GitHub answered", View.GONE, update.getVisibility());
+      // 0.99.18 (the project owner, 15.11.2026, as in the OUYA menu): "v0.99.18-rc" left of the update button, without
+      // "-core"; the title only the page's name; the version also while the update button is hidden (no internet)
+      TextView title = (TextView) field(menu, "title");
+      assertEquals("the title without the version", activity.getString(R.string.ingame_title), title.getText().toString());
+      assertEquals("v0.99.18-rc", version.getText().toString());
+      measure(root, width, height);
+      View header = (View) version.getParent();
+      assertEquals("the version without an answer from GitHub", View.VISIBLE, version.getVisibility());
+      assertTrue("then left of Back to the game", version.getRight() <= leftIn(resume, header));
+      menu.showUpdate(AppUpdate.CURRENT);
+      measure(root, width, height);
       assertEquals(activity.getString(R.string.ingame_up_to_date), update.getText().toString());
       assertFalse("up to date: not clickable", update.isEnabled());
       assertTrue("left of Back to the game", update.getRight() <= resume.getLeft());
+      assertTrue("the version left of the update button", version.getRight() <= leftIn(update, header));
       assertEquals("in the same row", update.getTop(), resume.getTop());
       menu.showUpdate(AppUpdate.OLDER);
       assertEquals(activity.getString(R.string.ingame_update), update.getText().toString());
       assertTrue("an update: clickable", update.isEnabled());
+      assertFalse("the version is no button", version.isFocusable() || version.isClickable());
     }
+  }
+
+  /** `v`'s left and top edge in `ancestor`'s coordinates (views in different groups compared). */
+  static int leftIn(View v, View ancestor) {
+    int x = 0;
+    for (View at = v; at != ancestor; at = (View) at.getParent()) x += at.getLeft();
+    return x;
+  }
+  static int topIn(View v, View ancestor) {
+    int y = 0;
+    for (View at = v; at != ancestor; at = (View) at.getParent()) y += at.getTop();
+    return y;
+  }
+
+  /** The APK's versionName as the package manager gives it to CoreMenu.version() (the tests' own is not set). */
+  static void setVersion(Activity activity, String versionName) {
+    org.robolectric.Shadows.shadowOf(activity.getPackageManager())
+        .getInternalMutablePackageInfo(activity.getPackageName()).versionName = versionName;
   }
 
   @Test public void controlsPageHasMotionComfortAndControllerSectionsWithOneGap() throws Exception {
@@ -866,6 +898,74 @@ public class CoreMenuLayoutTest {
     }
   }
 
+  /** Management (0.99.15): the memory card's four buttons in this order (.gci export, .zip export, import, Delete All
+   *  Data); the .zip also with an empty card; "Delete All Data" asks in the red question with Cancel and Delete,
+   *  Cancel (and B) keep everything, Delete hands it to the host (CoreActivity: the restart without the card's data). */
+  @Test public void managementExportsZipAndDeletesAllDataAfterAsking() throws Exception {
+    final int[] wipes = {0}, zips = {0};
+    CoreMenu.Host host = (CoreMenu.Host) Proxy.newProxyInstance(CoreMenu.Host.class.getClassLoader(),
+        new Class<?>[] {CoreMenu.Host.class}, (proxy, method, args) -> {
+          if (method.getName().equals("wipePlayerData")) wipes[0]++;
+          if (method.getName().equals("exportZip")) zips[0]++;
+          return method.getReturnType() == boolean.class ? Boolean.FALSE : method.getReturnType() == int.class ? (Object) 0
+              : method.getReturnType() == float.class ? (Object) 1f : method.getReturnType() == double.class ? (Object) 60.0 : null;
+        });
+    try (var controller = Robolectric.buildActivity(Activity.class).create()) {
+      Activity activity = controller.get();
+      CoreMenu menu = new CoreMenu(activity, host, false, 1920, 1080);
+      Method show = CoreMenu.class.getDeclaredMethod("showPage", int.class, boolean.class); show.setAccessible(true);
+      show.invoke(menu, 6, false);  // MANAGEMENT
+      View root = (View) field(menu, "root");
+      Button gci = findButton(root, activity.getString(R.string.ingame_export));
+      Button zip = findButton(root, activity.getString(R.string.ingame_export_zip));
+      Button imports = findButton(root, activity.getString(R.string.ingame_import));
+      Button wipe = findButton(root, activity.getString(R.string.ingame_wipe));
+      assertNotNull(zip);
+      assertNotNull(wipe);
+      ViewGroup row = (ViewGroup) gci.getParent();
+      assertSame("one group of buttons", row, zip.getParent());
+      assertSame(row, wipe.getParent());
+      assertEquals(0, row.indexOfChild(gci));
+      assertEquals(1, row.indexOfChild(zip));
+      assertEquals(2, row.indexOfChild(imports));
+      assertEquals(3, row.indexOfChild(wipe));
+      assertFalse("no saves: no .gci", gci.isEnabled());
+      assertTrue("the .zip holds the settings anyway", zip.isEnabled());
+      zip.performClick();
+      assertEquals(1, zips[0]);
+      // the summary and the heading at the bottom (wish of the project owner, 14.11.2026)
+      assertNotNull(findText(root, activity.getString(R.string.ingame_source).toUpperCase(Locale.getDefault())));
+      wipe.performClick();
+      TestLooper.idle();
+      android.app.AlertDialog ask = (android.app.AlertDialog) org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+      assertNotNull("it asks first", ask);
+      View box = ask.getWindow().getDecorView();
+      assertNotNull("the text says what goes and what stays", findText(box, activity.getString(R.string.ingame_wipe_text)));
+      Button cancel = findButton(box, activity.getString(R.string.ingame_wipe_cancel));
+      Button delete = findButton(box, activity.getString(R.string.ingame_wipe_yes));
+      assertNotNull(cancel);
+      assertNotNull(delete);
+      assertTrue("the focus starts on Cancel", cancel.isFocused());
+      cancel.performClick();
+      TestLooper.idle();
+      assertFalse(ask.isShowing());
+      assertEquals("Cancel keeps everything", 0, wipes[0]);
+      wipe.performClick();
+      TestLooper.idle();
+      ask = (android.app.AlertDialog) org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+      ask.dispatchKeyEvent(new android.view.KeyEvent(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.KEYCODE_BUTTON_B));
+      TestLooper.idle();
+      assertFalse("B cancels", ask.isShowing());
+      assertEquals(0, wipes[0]);
+      wipe.performClick();
+      TestLooper.idle();
+      ask = (android.app.AlertDialog) org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+      findButton(ask.getWindow().getDecorView(), activity.getString(R.string.ingame_wipe_yes)).performClick();
+      TestLooper.idle();
+      assertEquals("Delete hands it to the host", 1, wipes[0]);
+    }
+  }
+
   /** With Vulkan (09.11.2026): "Merge draw calls" and "Vertex ring buffer" greyed out and shown off, a line says why;
    *  the stored choice stays for OpenGL ES. */
   @Test public void vulkanGreysMergeAndVertexRingOut() throws Exception {
@@ -926,9 +1026,45 @@ public class CoreMenuLayoutTest {
     }
   }
 
-  /** Potato mode, 0.99.6: "View distance" in a third row, Normal (the default, lit), Medium (lit), Short (off), with its
-   *  own line of help. */
-  @Test public void viewDistanceMovesThroughThreeStepsAndIsOffOnlyAtShort() throws Exception {
+  /** Bloom, 0.99.13: under Display's effects, off by default, Off -> Light -> Strong -> Off, its own line of help;
+   *  the renderer gets none while a Potato mode setting is on (CoreBridge.bloomSent). */
+  @Test public void bloomMovesThroughThreeStepsAndStaysOffWithPotato() throws Exception {
+    try (var controller = Robolectric.buildActivity(Activity.class).create()) {
+      Activity activity = controller.get();
+      android.content.SharedPreferences g = activity.getSharedPreferences(CoreActivity.GRAPHICS_PREFS, 0);
+      g.edit().clear().apply();
+      assertEquals(0, CoreMenu.bloomLevel(g));
+      CoreMenu menu = new CoreMenu(activity, null, false, 1920, 1080);
+      Method show = CoreMenu.class.getDeclaredMethod("showPage", int.class, boolean.class); show.setAccessible(true);
+      show.invoke(menu, 1, false);  // DISPLAY
+      View root = (View) field(menu, "root");
+      Button bloom = findButton(root, activity.getString(R.string.ingame_bloom));
+      assertNotNull(bloom);
+      assertFalse(bloom.isSelected());
+      assertTrue(bloom.getText().toString().endsWith(activity.getString(R.string.ingame_off)));
+      try {
+        bloom.performClick();
+      } catch (UnsatisfiedLinkError e) {
+        // (no native library in the host tests: CoreBridge.setBloom is the last thing the press does)
+      }
+      assertEquals(1, CoreMenu.bloomLevel(g));
+      assertTrue(bloom.isSelected());
+      assertTrue(bloom.getText().toString().endsWith(activity.getString(R.string.ingame_dof_light)));
+      assertTrue(hasText(root, activity.getString(R.string.ingame_bloom_help)));
+      assertEquals(1, CoreBridge.bloomSent(g));
+      g.edit().putBoolean("weatherEffects", false).apply();
+      assertEquals("off while a Potato mode setting is on", 0, CoreBridge.bloomSent(g));
+      g.edit().putBoolean("weatherEffects", true).putInt(CoreBridge.VIEW_DISTANCE, 1).apply();
+      assertEquals("off with a shorter view distance", 0, CoreBridge.bloomSent(g));
+      g.edit().putInt(CoreBridge.VIEW_DISTANCE, 0).putInt(CoreMenu.BLOOM_LEVEL, 2).apply();
+      assertEquals(2, CoreBridge.bloomSent(g));
+    }
+  }
+
+  /** Potato mode, 0.99.6: "View distance" in a third row with its own line of help, each press one step on; since
+   *  0.99.18 (the project owner, 15.11.2026) Normal, Medium, Short, None (the 35 %), Far, then Normal again, lit but at
+   *  None, and after the text eyes: 3, 2, 1, a crossed-out one, 4 (CoreMenu.Eyes); TalkBack reads the text alone. */
+  @Test public void viewDistanceMovesThroughFiveStepsWithEyes() throws Exception {
     try (var controller = Robolectric.buildActivity(Activity.class).create()) {
       Activity activity = controller.get();
       android.content.SharedPreferences g = activity.getSharedPreferences(CoreActivity.GRAPHICS_PREFS, 0);
@@ -940,19 +1076,64 @@ public class CoreMenuLayoutTest {
       Button view = findButton(root, activity.getString(R.string.ingame_potato_view));
       Button particles = findButton(root, activity.getString(R.string.ingame_potato_particles));
       assertNotNull(view); assertNotSame(particles.getParent(), view.getParent());
-      assertTrue(view.getText().toString().endsWith(activity.getString(R.string.ingame_view_normal)));
-      assertTrue(view.isSelected());
-      view.performClick();
-      assertEquals(1, CoreBridge.viewDistance(g)); assertTrue(view.isSelected());
-      assertTrue(view.getText().toString().endsWith(activity.getString(R.string.ingame_view_medium)));
-      view.performClick();
-      assertEquals(2, CoreBridge.viewDistance(g)); assertFalse(view.isSelected());
-      assertTrue(view.getText().toString().endsWith(activity.getString(R.string.ingame_view_short)));
-      assertEquals(50, CoreBridge.VIEW_PERCENT[CoreBridge.viewDistance(g)]);
-      view.performClick();
-      assertEquals(0, CoreBridge.viewDistance(g)); assertTrue(view.isSelected());
+      int[] levels = {0, 1, 2, 3, 4, 0};
+      int[] labels = {R.string.ingame_view_normal, R.string.ingame_view_medium, R.string.ingame_view_short,
+          R.string.ingame_view_very_short, R.string.ingame_view_far, R.string.ingame_view_normal};
+      int[] eyes = {3, 2, 1, 1, 4, 3};
+      boolean[] lit = {true, true, true, false, true, true};
+      for (int i = 0; i < levels.length; i++) {
+        if (i > 0) view.performClick();
+        String where = "step " + i;
+        assertEquals(where, levels[i], CoreBridge.viewDistance(g));
+        assertEquals(where + ": lit", lit[i], view.isSelected());
+        CharSequence text = view.getText();
+        String words = activity.getString(R.string.ingame_toggle_value, activity.getString(R.string.ingame_potato_view),
+            activity.getString(labels[i]));
+        assertEquals(where + ": the text, a space, the eyes", words + " \uFFFC", text.toString());
+        assertEquals(where + ": TalkBack reads the text", words, view.getContentDescription().toString());
+        CoreMenu.Eyes[] spans = ((android.text.Spanned) text).getSpans(0, text.length(), CoreMenu.Eyes.class);
+        assertEquals(where + ": one piece of eyes", 1, spans.length);
+        assertEquals(where + ": eyes", eyes[i], spans[0].count);
+      }
+      assertEquals(35, CoreBridge.VIEW_PERCENT[3]);
+      assertTrue(CoreBridge.VIEW_PERCENT[4] > 100);
       assertTrue(hasText(root, activity.getString(R.string.ingame_view_help)));
     }
+  }
+
+  /** 0.99.18: the levels saved before (0 Normal, 1 Medium, 2 Short) mean what they meant, the new ones keep their
+   *  numbers (3 Very short, 4 Far), an unknown value is Normal; Far keeps the bloom as Normal does, the shorter levels
+   *  turn it off; a profile's Far reaches the core as Far. */
+  @Test public void viewDistanceLevelsKeepSavedValuesAndTheBloom() {
+    android.content.SharedPreferences g = org.robolectric.RuntimeEnvironment.getApplication()
+        .getSharedPreferences(CoreActivity.GRAPHICS_PREFS, 0);
+    g.edit().clear().apply();
+    int[] percent = {100, 75, 50, 35};
+    for (int i = 0; i < percent.length; i++) {
+      g.edit().putInt(CoreBridge.VIEW_DISTANCE, i).apply();
+      assertEquals(i, CoreBridge.viewDistance(g));
+      assertEquals(percent[i], CoreBridge.VIEW_PERCENT[i]);
+    }
+    g.edit().putInt(CoreBridge.VIEW_DISTANCE, 4).apply();
+    assertEquals(CoreBridge.VIEW_FAR, CoreBridge.viewDistance(g));
+    g.edit().putInt(CoreBridge.VIEW_DISTANCE, 9).apply();
+    assertEquals(CoreBridge.VIEW_NORMAL, CoreBridge.viewDistance(g));
+    g.edit().putInt(CoreBridge.VIEW_DISTANCE, -1).apply();
+    assertEquals(CoreBridge.VIEW_NORMAL, CoreBridge.viewDistance(g));
+    g.edit().putInt(CoreMenu.BLOOM_LEVEL, 2).putInt(CoreBridge.VIEW_DISTANCE, CoreBridge.VIEW_FAR).apply();
+    assertEquals(2, CoreBridge.bloomSent(g));
+    g.edit().putInt(CoreBridge.VIEW_DISTANCE, CoreBridge.VIEW_VERY_SHORT).apply();
+    assertEquals(0, CoreBridge.bloomSent(g));
+    // the menu's order round: Normal, Medium, Short, Very short, Far, Normal
+    int level = CoreBridge.VIEW_NORMAL;
+    int[] seen = new int[6];
+    for (int i = 0; i < seen.length; i++) { seen[i] = level; level = CoreBridge.nextView(level); }
+    assertArrayEquals(new int[] {0, 1, 2, 3, 4, 0}, seen);
+    // a profile with Far (the Custom profile holds the raw value): the core gets Far's percent
+    int[] v = PerfProfile.current(g);
+    assertEquals(CoreBridge.VIEW_VERY_SHORT, v[PerfProfile.VIEW]);
+    assertEquals(CoreBridge.VIEW_PERCENT[CoreBridge.VIEW_FAR],
+        CoreBridge.VIEW_PERCENT[CoreBridge.viewLevel(CoreBridge.VIEW_FAR)]);
   }
 
   /** The performance profiles in one row with the benchmark at its end, the lines under it over the whole width (the

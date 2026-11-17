@@ -32,6 +32,8 @@
     <string name="ingame_flares_lens">Reflets d\'objectif</string>
     <string name="ingame_flares_both">Halos + reflets</string>
     <string name="ingame_flares_help">Reflets d\'objectif\u00A0: de légers anneaux colorés qui traversent l\'image depuis les lumières les plus vives, comme avec un objectif d\'appareil photo. Halos + reflets\u00A0: en plus, une lueur douce avec une fine étoile autour des bougies, torches et lampes.</string>
+    <string name="ingame_bloom">Bloom</string>
+    <string name="ingame_bloom_help">Bloom\u00A0: les parties les plus claires de la scène (lampes, feu, soleil) rayonnent doucement autour d\'elles\u00A0; les pièces sombres restent sombres, l\'affichage et les menus restent nets. Désactivé tant qu\'un réglage du Mode Potato est actif.</string>
     <string name="ingame_dof">Profondeur de champ</string>
     <string name="ingame_info_hud">HUD d\'informations</string>
     <string name="ingame_hud_fps">FPS jeu/affichage</string>
@@ -60,8 +62,10 @@
     <string name="ingame_view_normal">Normale</string>
     <string name="ingame_view_medium">Moyenne</string>
     <string name="ingame_view_short">Courte</string>
+    <string name="ingame_view_very_short">Aucune</string>
+    <string name="ingame_view_far">Longue</string>
     <string name="ingame_potato_help">Effets météo : nappes de brouillard, pluie, éclaboussures. Effets spéciaux : vapeur, ondulations de chaleur, eau. Effets de particules : sang, poussière, fumée, éclaboussures, étincelles et feu ; Réduits en dessine la moitié, Aucun les retire tous sauf le feu et les explosions, qui restent à moitié comme avertissement. Ombres et lumière : désactivé retire les ombres (aussi dans les cinématiques), les halos et les rayons de lumière ; les pièces gardent leur éclairage. Chaque réglage allège le travail graphique sur les appareils modestes ; le point d\'impact, les indications, le laser et tous les effets des cinématiques restent.</string>
-    <string name="ingame_view_help">Distance de vue\u00A0: Moyenne et Courte rapprochent le brouillard lointain, et ce qui se trouve derrière n\'est pas dessiné. Cela aide là où le processeur ou le nombre d\'objets freine le jeu, sur les téléphones plus lents en basse résolution\u00A0: au village, environ la moitié des objets disparaît. En haute résolution, la puce graphique est occupée par les pixels et gagne peu. Les pièces sans brouillard lointain, et celles dont le brouillard se trouve bien au-delà de ce que vous voyez (le château, l\'île), restent inchangées.</string>
+    <string name="ingame_view_help">Distance de vue\u00A0: Moyenne, Courte et Aucune rapprochent le brouillard lointain, et ce qui se trouve derrière n\'est pas dessiné. Cela aide là où le processeur ou le nombre d\'objets freine le jeu, sur les téléphones plus lents en basse résolution\u00A0: au village, environ la moitié des objets disparaît. En haute résolution, la puce graphique est occupée par les pixels et gagne peu. Aucune est la plus courte\u00A0: un brouillard épais tout près, pour les téléphones lents\u00A0; ce qui est près de vous est dessiné comme toujours. Longue garde le brouillard du jeu mais dessine jusqu\'à ce qu\'il cache tout\u00A0: les arbres et les maisons au loin ne surgissent plus soudain du brouillard. Un petit changement qui coûte un peu plus. Les pièces sans brouillard lointain, et celles dont le brouillard se trouve bien au-delà de ce que vous voyez (le château, l\'île), restent inchangées.</string>
     <string name="ingame_resolution_line">Résolution\u00A0: %1$d × %2$d pixels (niveau %3$s) · écran %4$d × %5$d · s’applique à la fermeture du menu. Les niveaux plus élevés demandent plus de puissance.</string>
     <string name="ingame_resolution_line_auto">Résolution\u00A0: %1$d × %2$d pixels (niveau %3$s, Dynamique) · écran %4$d × %5$d · s’applique à la fermeture du menu. Dynamique descend d’un niveau tant que le GPU ne suit pas.</string>
 
@@ -86,12 +90,15 @@
     <string name="ingame_far_camera">Caméra éloignée</string>
     <string name="ingame_auto_aim_help">Visée auto : quand tu lèves ton arme, la visée saute sur l’ennemi le plus proche devant toi et le suit un instant (l’aide à la visée du jeu).</string>
     <string name="ingame_always_run_help">Toujours courir : Leon court dès que tu te déplaces ; maintiens le bouton de course (par ex. B) pour marcher.</string>
+    <string name="ingame_gentle_qte">QTE plus doux (Professional)</string>
+    <string name="ingame_gentle_qte_help">QTE plus doux\u00A0: en Professional, les séquences de boutons (esquiver, le combat au couteau, appuyer vite) laissent autant de temps et demandent autant d’appuis qu’en Normal\u00A0; les dégâts et les ennemis restent ceux de Professional. Un doigt sur l’image appuie sur les boutons d’une invite dès qu’il touche l’écran, dans toutes les difficultés.</string>
     <string name="ingame_far_camera_help">Garde la caméra d\'épaule un peu plus loin derrière Leon en marchant et à l\'arrêt. En visant et dans les endroits étroits, elle se rapproche comme avant ; entre les deux, elle glisse en douceur.</string>
     <string name="ingame_touch_aim">Visée tactile</string>
     <string name="ingame_aim_move_stick">Stick de déplacement</string>
     <string name="ingame_aim_touch_area">Zone tactile</string>
     <string name="ingame_aim_c_stick">Stick C</string>
     <string name="ingame_touch_aim_help">Visée tactile : tant que L ou R tient une arme prête, la zone tactile vise en glissant sur la moitié droite (la visée suit votre doigt et s’arrête quand il s’arrête) ou le stick C tactile vise comme un stick (ajoutez-le avec l’engrenage en haut à droite). Stick de déplacement : comme sur GameCube.</string>
+    <string name="ingame_touch_zoom_help">Zoomer dans la lunette ou les jumelles au tactile\u00A0: glissez vers le haut ou le bas sur la moitié droite (en visant avec le stick de déplacement ou le stick C) ou sur le stick C tactile, ou ajoutez les boutons de zoom + et − avec l’engrenage en haut à droite (ils zooment tant qu’on les maintient).</string>
     <string name="ingame_gyro_sensitivity">Sensibilité du gyroscope</string>
     <string name="ingame_gyro_invert_v">Inverser la verticale</string>
     <string name="ingame_gyro_invert_h">Inverser l’horizontale</string>
@@ -109,10 +116,15 @@
     <string name="ingame_update_page">La dernière version s\'ouvre sur GitHub\u00A0: téléchargez-y l\'APK et installez-le.</string>
 
     <string name="ingame_card">Carte mémoire (emplacement A)</string>
-    <string name="ingame_card_help">Exporter et importer les données de jeu\u00A0: les sauvegardes au format .gci (pour Dolphin ou GameCube) et votre disposition tactile personnalisée dans CubeEvil4-touch-layout.json. L’importation restaure les deux.</string>
+    <string name="ingame_card_help">Exporter les données de jeu\u00A0: les sauvegardes au format .gci (pour Dolphin ou GameCube) avec votre disposition tactile personnalisée dans CubeEvil4-touch-layout.json, ou tout dans un .zip (sauvegardes, sauvegarde instantanée, RetroTouch et réglages de l’application). L’importation restaure le tout. Supprimer toutes les données vide la carte mémoire.</string>
     <string name="ingame_card_busy">La carte est utilisée (le jeu sauvegarde ou charge) ou le jeu charge encore – fermez le menu et rouvrez-le dans un instant.</string>
     <string name="ingame_card_none">Aucune carte mémoire.</string>
     <string name="ingame_export">Exporter les données de jeu (.gci)</string>
+    <string name="ingame_export_zip">Exporter les données de jeu (.zip)</string>
+    <string name="ingame_wipe">Supprimer toutes les données</string>
+    <string name="ingame_wipe_text">Toutes les sauvegardes de la carte mémoire et la sauvegarde instantanée seront supprimées, comme si la carte était formatée. RetroTouch reste (votre disposition tactile et ses réglages), de même que les disques, les textures HD et les réglages de l’application. Impossible d’annuler\u00A0: pour garder vos sauvegardes, exportez-les d’abord (.zip). Le jeu redémarre pour cela.</string>
+    <string name="ingame_wipe_cancel">Annuler</string>
+    <string name="ingame_wipe_yes">Supprimer</string>
     <string name="ingame_import">Importer des données de jeu (.gci, .zip, .raw)</string>
     <string name="ingame_discs">Disques</string>
     <string name="ingame_discs_help">Pour jouer à une autre version\u00A0: la partie se termine et vous importez ses deux disques depuis l’écran de démarrage. Les sauvegardes, la carte mémoire et les réglages sont conservés.</string>
@@ -127,7 +139,7 @@
     <string name="ingame_report_send">Envoyer le rapport …</string>
     <string name="ingame_report_save">Enregistrer le rapport …</string>
 
-    <string name="ingame_source">Code source</string>
+    <string name="ingame_source">Code source et mises à jour</string>
     <string name="ingame_source_line">Plus d’infos sur ce portage\u00A0: %1$s</string>
     <string name="ingame_no_browser">Aucun navigateur sur cet appareil</string>
 
@@ -172,6 +184,26 @@
     <string name="ingame_touch_imported">Disposition tactile importée\u00A0: active immédiatement.</string>
     <string name="ingame_touch_skipped">Disposition tactile ignorée\u00A0: la vôtre est conservée.</string>
     <string name="ingame_touch_import_bad">Disposition tactile non importée\u00A0: %1$s</string>
+    <plurals name="ingame_backup_saved">
+        <item quantity="one">%1$d fichier de la carte mémoire enregistré dans %2$s.</item>
+        <item quantity="many">%1$d fichiers de la carte mémoire enregistrés dans %2$s.</item>
+        <item quantity="other">%1$d fichiers de la carte mémoire enregistrés dans %2$s.</item>
+    </plurals>
+    <string name="ingame_backup_with_instant">Avec la sauvegarde instantanée.</string>
+    <string name="ingame_backup_with_touch">Avec votre disposition tactile.</string>
+    <string name="ingame_backup_with_settings">Avec les réglages de l’application et de RetroTouch.</string>
+    <string name="ingame_backup_instant_imported">Sauvegarde instantanée importée.</string>
+    <string name="ingame_backup_instant_exists">Vous avez déjà une sauvegarde instantanée. La remplacer par celle importée\u00A0?</string>
+    <string name="ingame_backup_instant_skipped">Sauvegarde instantanée ignorée\u00A0: la vôtre est conservée.</string>
+    <string name="ingame_backup_instant_bad">Sauvegarde instantanée non importée\u00A0: %1$s</string>
+    <string name="ingame_backup_settings_exists">Remplacer vos réglages par ceux importés (commandes, RetroTouch, jeu, graphismes et son)\u00A0?</string>
+    <string name="ingame_backup_settings_imported">Réglages importés.</string>
+    <string name="ingame_backup_settings_skipped">Réglages ignorés\u00A0: les vôtres sont conservés.</string>
+    <string name="ingame_backup_settings_same">Réglages\u00A0: identiques aux vôtres.</string>
+    <string name="ingame_backup_settings_bad">Réglages non importés\u00A0: %1$s</string>
+    <string name="ingame_backup_graphics_kept">La sauvegarde vient d’un autre appareil (%1$s)\u00A0: la résolution, le moteur de rendu et les autres réglages de performance de cet appareil sont conservés.</string>
+    <string name="ingame_backup_newer">Le fichier vient d’une version plus récente (%1$s)\u00A0: les réglages que cette version n’a pas sont ignorés.</string>
+    <string name="ingame_backup_restart">Le jeu redémarre pour utiliser les réglages importés. La progression non sauvegardée est perdue.</string>
     <string name="ingame_report_chooser">Envoyer le rapport d’erreurs</string>
     <string name="ingame_report_failed">Impossible de créer le rapport\u00A0: %1$s</string>
     <string name="ingame_capture_saved">Capture graphique enregistrée</string>
@@ -192,7 +224,7 @@
     <string name="ingame_display_summary">Résolution, format et effets</string>
     <string name="ingame_controls_summary">Tactile, gyroscope et confort</string>
     <string name="ingame_performance_summary">Cœurs performants, 60 FPS et compteur</string>
-    <string name="ingame_management_summary">Carte mémoire, disques, rapports et sources</string>
+    <string name="ingame_management_summary">Carte mémoire, disques, rapports, sources et mises à jour</string>
     <string name="ingame_audio">Audio</string>
     <string name="ingame_audio_summary">Musique et effets sonores</string>
     <string name="ingame_cheats_summary">Général, armes, argent et textures</string>
@@ -283,7 +315,7 @@
     <string name="ingame_cheat_random_items">Objets aléatoires</string>
     <string name="ingame_cheat_random_items_help">Objets aléatoires : les objets posés dans les salles de l’histoire (munitions, herbes et autres soins, grenades, pesetas, trésors) sont redistribués dans chaque salle où vous entrez à partir de là, et une salle donne toujours les mêmes objets jusqu’à ce que vous désactiviez puis réactiviez l’option. Les clés, les armes, les documents et les autres objets de l’histoire restent tels quels : le jeu peut toujours être terminé. Ce que vous avez déjà ramassé reste ramassé ; les ennemis, tonneaux et caisses gardent leur propre butin. Pas dans Assignment Ada ni dans The Mercenaries.</string>
     <string name="ingame_cheat_random_enemies">Ennemis aléatoires</string>
-    <string name="ingame_cheat_random_enemies_help">Ennemis aléatoires : dans les salles de l’histoire, les Ganados ordinaires se tiennent à d’autres endroits où se tenait un ennemi, et une salle peut avoir un ennemi de moins ou de plus ; une salle reste toujours la même jusqu’à ce que vous désactiviez puis réactiviez l’option. Les boss, le marchand, Ashley, Luis, les ennemis spéciaux, les vagues et les salles dont les événements comptent les ennemis restent tels quels : le jeu peut toujours être terminé. Les sauvegardes restent celles du jeu. À partir de la salle suivante ; pas dans Assignment Ada, The Mercenaries ni la partie d’Ashley.</string>
+    <string name="ingame_cheat_random_enemies_help">Ennemis aléatoires : dans beaucoup de salles, les Ganados ordinaires se tiennent à d’autres endroits, à quelques mètres du leur, et les salles qui en comptent 10 ou plus en ont un de moins ou un de plus (20 ou plus : jusqu’à deux ; là où le jeu compte ses ennemis, seuls les endroits changent). Le village du début du chapitre 1 et les salles dont les événements ont besoin de certains ennemis restent tels quels, comme les boss, le marchand, Ashley, Luis, les ennemis spéciaux et les vagues : le jeu peut toujours être terminé. Une salle reste la même à chaque fois jusqu’à ce que vous désactiviez puis réactiviez l’option ; les sauvegardes restent celles du jeu. À partir de la salle suivante ; pas dans Assignment Ada, The Mercenaries ni la partie d’Ashley.</string>
     <string name="ingame_cheat_extras">Débloquer les jeux bonus</string>
     <string name="ingame_cheat_extras_text">Assignment Ada et The Mercenaries sont débloqués (Professional aussi, comme après avoir fini le jeu). Le menu titre les affiche après un redémarrage. La progression depuis votre dernière sauvegarde est perdue.</string>
     <string name="ingame_cheat_extras_later">Débloqués : Assignment Ada et The Mercenaries apparaîtront dans le menu titre au prochain redémarrage.</string>
@@ -324,6 +356,10 @@
     <string name="ingame_act_left">Gauche</string>
     <string name="ingame_act_back">Reculer</string>
     <string name="ingame_act_forward">Avancer</string>
+    <string name="ingame_act_c_up">Stick C haut (zoom avant)</string>
+    <string name="ingame_act_c_down">Stick C bas (zoom arrière)</string>
+    <string name="ingame_act_c_left">Stick C gauche</string>
+    <string name="ingame_act_c_right">Stick C droite</string>
     <string name="ingame_map_swapped">%1$s est maintenant sur %2$s.</string>
     <string name="ingame_map_fixed_key">Cette touche est fixe (croix, valider, retour).</string>
     <string name="ingame_map_use_keyboard">Appuyez sur une touche du clavier.</string>
@@ -336,6 +372,7 @@
     <string name="ingame_map_press">Appuyez sur une touche …</string>
     <string name="ingame_map_keyboard">Clavier et souris</string>
     <string name="ingame_mouse_help">La souris (Android 8 et plus) appartient au jeu pendant la partie : la déplacer tourne la caméra, en visant elle déplace la visée, aux jumelles le regard. Sa molette zoome avec la lunette et les jumelles (vers le haut : plus près). Le menu de l’app (F1) libère le pointeur.</string>
+    <string name="ingame_keyboard_c_help">Le couteau\u00A0: maintenez sa touche et bougez la souris pour viser, comme avec les armes. Les touches du stick C (I, K, J, L sauf si vous les changez) tournent la caméra et zooment la lunette et les jumelles (haut\u00A0: zoom avant, bas\u00A0: zoom arrière), comme la molette.</string>
     <string name="ingame_mouse_sensitivity">Sensibilité de la souris</string>
     <string name="ingame_map_controller">Manette</string>
     <string name="ingame_map_device">Appareil</string>
@@ -377,7 +414,7 @@
     <string name="ingame_limit_none">rien de notable</string>
     <string name="ingame_bench_welcome">Bienvenue dans CubeEvil4</string>
     <string name="ingame_bench_redo">Mesurer à nouveau</string>
-    <string name="ingame_bench_redo_text">Nouveau\u00A0: le benchmark mesure maintenant aussi le processeur, pour une proposition mieux adaptée à cet appareil. Tes réglages restent tels quels tant que tu n\'acceptes pas la nouvelle proposition.</string>
+    <string name="ingame_bench_redo_text">Nouveau\u00A0: le benchmark garde maintenant une réserve pour les endroits plus lourds, pour que la résolution reste stable pendant que tu joues. Tes réglages restent tels quels tant que tu n\'acceptes pas la nouvelle proposition.</string>
     <string name="ingame_bench_text">L\'app mesure ce que cet appareil peut faire et propose les meilleurs réglages. Le jeu se rend pour cela au ponton du lac (pluie, eau, brouillard) et la caméra tourne autour du personnage. Cela prend environ 2 à 3 minutes ; le son est coupé. Ensuite, tu reviens là où tu étais. B / Retour annule.</string>
     <string name="ingame_bench_first_note">Ce sera proposé à nouveau au prochain démarrage.</string>
     <string name="ingame_bench_start">Lancer la mesure</string>

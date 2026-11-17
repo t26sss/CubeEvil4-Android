@@ -30,6 +30,8 @@
     <string name="ingame_flares_lens">Destellos de lente</string>
     <string name="ingame_flares_both">Halos + destellos</string>
     <string name="ingame_flares_help">Destellos de lente: tenues anillos de colores que cruzan la imagen desde las luces más brillantes, como los de un objetivo de cámara. Halos + destellos: además, un brillo suave con una estrella fina en velas, antorchas y lámparas.</string>
+    <string name="ingame_bloom">Bloom</string>
+    <string name="ingame_bloom_help">Bloom: las partes más brillantes de la escena (lámparas, fuego, luz del sol) brillan suavemente sobre su entorno; las salas oscuras siguen oscuras, el HUD y los menús siguen nítidos. Desactivado mientras haya un ajuste del Modo Potato activo.</string>
     <string name="ingame_dof">Profundidad de campo</string>
     <string name="ingame_info_hud">HUD de información</string>
     <string name="ingame_hud_fps">FPS juego/pantalla</string>
@@ -58,8 +60,10 @@
     <string name="ingame_view_normal">Normal</string>
     <string name="ingame_view_medium">Media</string>
     <string name="ingame_view_short">Corta</string>
+    <string name="ingame_view_very_short">Ninguna</string>
+    <string name="ingame_view_far">Larga</string>
     <string name="ingame_potato_help">Efectos climáticos: bancos de niebla, lluvia, salpicaduras de agua. Efectos especiales: vapor, calima, agua. Efectos de partículas: sangre, polvo, humo, salpicaduras, chispas y fuego; Menos dibuja la mitad, Ninguno los quita todos salvo el fuego y las explosiones, que quedan a la mitad como aviso. Sombras y luz: desactivado quita las sombras (también en las escenas), los destellos y los rayos de luz; las salas conservan su iluminación. Cada ajuste ahorra trabajo gráfico en dispositivos menos potentes; el punto del impacto, las pistas, el láser y todos los efectos de las escenas se mantienen.</string>
-    <string name="ingame_view_help">Distancia de visión: Media y Corta acercan la niebla lejana, y lo que queda detrás no se dibuja. Ayuda donde el procesador o la cantidad de objetos frenan el juego, en móviles más lentos con resolución baja: en el pueblo desaparece cerca de la mitad de los objetos. Con resolución alta el chip gráfico está ocupado con los píxeles y gana poco. Las salas sin niebla lejana, y aquellas cuya niebla queda muy por detrás de lo que ves (el castillo, la isla), quedan igual.</string>
+    <string name="ingame_view_help">Distancia de visión: Media, Corta y Ninguna acercan la niebla lejana, y lo que queda detrás no se dibuja. Ayuda donde el procesador o la cantidad de objetos frenan el juego, en móviles más lentos con resolución baja: en el pueblo desaparece cerca de la mitad de los objetos. Con resolución alta el chip gráfico está ocupado con los píxeles y gana poco. Ninguna es la más corta: niebla espesa ya de cerca, para móviles lentos; lo que está cerca de ti se dibuja como siempre. Larga mantiene la niebla del juego, pero sigue dibujando hasta que la niebla lo oculta todo, así que los árboles y las casas lejanos ya no surgen de golpe de ella: un cambio pequeño que cuesta algo más. Las salas sin niebla lejana, y aquellas cuya niebla queda muy por detrás de lo que ves (el castillo, la isla), quedan igual.</string>
     <string name="ingame_resolution_line">Resolución: %1$d × %2$d píxeles (nivel %3$s) · pantalla %4$d × %5$d · se aplica al cerrar el menú. Los niveles más altos requieren más potencia.</string>
     <string name="ingame_resolution_line_auto">Resolución: %1$d × %2$d píxeles (nivel %3$s, Dinámica) · pantalla %4$d × %5$d · se aplica al cerrar el menú. Dinámica baja un nivel mientras la GPU no da abasto.</string>
 
@@ -84,12 +88,15 @@
     <string name="ingame_far_camera">Cámara lejana</string>
     <string name="ingame_auto_aim_help">Apuntado automático: al levantar el arma, la mira salta al enemigo más cercano delante de ti y lo sigue un momento (la ayuda de puntería del propio juego).</string>
     <string name="ingame_always_run_help">Correr siempre: Leon corre siempre que te mueves; mantén el botón de correr (p. ej. B) para caminar.</string>
+    <string name="ingame_gentle_qte">QTE más suaves (Professional)</string>
+    <string name="ingame_gentle_qte_help">QTE más suaves: en Professional, los eventos de botones (esquivar, la pelea a cuchillo, pulsar rápido) dan tanto tiempo y piden tantas pulsaciones como en Normal; el daño y los enemigos siguen como en Professional. Un dedo en la imagen pulsa los botones de un aviso en cuanto toca la pantalla, en cualquier dificultad.</string>
     <string name="ingame_far_camera_help">Mantiene la cámara de hombro un poco más detrás de Leon al caminar y al estar quieto. Al apuntar y en sitios estrechos se acerca como antes; entre ambos se mueve con suavidad.</string>
     <string name="ingame_touch_aim">Apuntar táctil</string>
     <string name="ingame_aim_move_stick">Stick de movimiento</string>
     <string name="ingame_aim_touch_area">Zona táctil</string>
     <string name="ingame_aim_c_stick">Stick C</string>
     <string name="ingame_touch_aim_help">Apuntar táctil: mientras L o R mantiene un arma lista, la zona táctil apunta deslizando en la mitad derecha (la mira sigue tu dedo y se detiene cuando se detiene) o el stick C táctil apunta como un stick (añádelo con el engranaje de arriba a la derecha). Stick de movimiento: como en GameCube.</string>
+    <string name="ingame_touch_zoom_help">Zoom en la mira o los prismáticos por táctil: arrastra hacia arriba o abajo en la mitad derecha (apuntando con el stick de movimiento o el stick C) o en el stick C táctil, o añade los botones de zoom + y − con el engranaje de arriba a la derecha (hacen zoom mientras los mantienes).</string>
     <string name="ingame_gyro_sensitivity">Sensibilidad del giroscopio</string>
     <string name="ingame_gyro_invert_v">Invertir vertical</string>
     <string name="ingame_gyro_invert_h">Invertir horizontal</string>
@@ -107,10 +114,15 @@
     <string name="ingame_update_page">La versión más reciente se abre en GitHub: descarga allí el APK e instálalo.</string>
 
     <string name="ingame_card">Tarjeta de memoria (ranura A)</string>
-    <string name="ingame_card_help">Exportar e importar los datos del juego: las partidas guardadas como .gci (para Dolphin o GameCube) y tu propia disposición táctil como CubeEvil4-touch-layout.json. La importación recupera ambas cosas.</string>
+    <string name="ingame_card_help">Exportar datos del juego: las partidas como .gci (para Dolphin o GameCube) con tu propia disposición táctil como CubeEvil4-touch-layout.json, o todo en un .zip (partidas, guardado instantáneo, RetroTouch y los ajustes de la app). La importación lo recupera. Borrar todos los datos vacía la tarjeta de memoria.</string>
     <string name="ingame_card_busy">La tarjeta está en uso (el juego guarda o carga) o el juego aún está cargando: cierra el menú y vuelve a abrirlo en un momento.</string>
     <string name="ingame_card_none">No hay tarjeta de memoria.</string>
     <string name="ingame_export">Exportar datos del juego (.gci)</string>
+    <string name="ingame_export_zip">Exportar datos del juego (.zip)</string>
+    <string name="ingame_wipe">Borrar todos los datos</string>
+    <string name="ingame_wipe_text">Se borrarán todas las partidas de la tarjeta de memoria y el guardado instantáneo, como si la tarjeta se formateara. RetroTouch se mantiene (tu disposición táctil y sus ajustes), igual que los discos, las texturas HD y los ajustes de la app. No se puede deshacer: si quieres conservar tus partidas, expórtalas antes (.zip). El juego se reinicia para ello.</string>
+    <string name="ingame_wipe_cancel">Cancelar</string>
+    <string name="ingame_wipe_yes">Borrar</string>
     <string name="ingame_import">Importar datos del juego (.gci, .zip, .raw)</string>
     <string name="ingame_discs">Discos</string>
     <string name="ingame_discs_help">Para jugar otra versión: la partida termina e importas sus dos discos en la pantalla de inicio. Las partidas guardadas, la tarjeta de memoria y los ajustes se conservan.</string>
@@ -125,7 +137,7 @@
     <string name="ingame_report_send">Enviar informe …</string>
     <string name="ingame_report_save">Guardar informe …</string>
 
-    <string name="ingame_source">Código fuente</string>
+    <string name="ingame_source">Código fuente y actualizaciones</string>
     <string name="ingame_source_line">Más sobre este port en %1$s</string>
     <string name="ingame_no_browser">No hay navegador en este dispositivo</string>
 
@@ -170,6 +182,26 @@
     <string name="ingame_touch_imported">Disposición táctil importada: se usa de inmediato.</string>
     <string name="ingame_touch_skipped">Disposición táctil omitida: se mantiene la tuya.</string>
     <string name="ingame_touch_import_bad">Disposición táctil no importada: %1$s</string>
+    <plurals name="ingame_backup_saved">
+        <item quantity="one">%1$d archivo de la tarjeta de memoria guardado en %2$s.</item>
+        <item quantity="many">%1$d archivos de la tarjeta de memoria guardados en %2$s.</item>
+        <item quantity="other">%1$d archivos de la tarjeta de memoria guardados en %2$s.</item>
+    </plurals>
+    <string name="ingame_backup_with_instant">Con el guardado instantáneo.</string>
+    <string name="ingame_backup_with_touch">Con tu disposición táctil.</string>
+    <string name="ingame_backup_with_settings">Con los ajustes de la app y de RetroTouch.</string>
+    <string name="ingame_backup_instant_imported">Guardado instantáneo importado.</string>
+    <string name="ingame_backup_instant_exists">Ya tienes un guardado instantáneo. ¿Reemplazarlo por el importado?</string>
+    <string name="ingame_backup_instant_skipped">Guardado instantáneo omitido: se mantiene el tuyo.</string>
+    <string name="ingame_backup_instant_bad">Guardado instantáneo no importado: %1$s</string>
+    <string name="ingame_backup_settings_exists">¿Reemplazar tus ajustes por los importados (controles, RetroTouch, juego, gráficos y sonido)?</string>
+    <string name="ingame_backup_settings_imported">Ajustes importados.</string>
+    <string name="ingame_backup_settings_skipped">Ajustes omitidos: se mantienen los tuyos.</string>
+    <string name="ingame_backup_settings_same">Ajustes: los mismos que los tuyos.</string>
+    <string name="ingame_backup_settings_bad">Ajustes no importados: %1$s</string>
+    <string name="ingame_backup_graphics_kept">La copia se hizo en otro dispositivo (%1$s): se mantienen la resolución, el renderizador y los demás ajustes de rendimiento de este dispositivo.</string>
+    <string name="ingame_backup_newer">El archivo viene de una versión más nueva (%1$s): se omiten los ajustes que esta versión no tiene.</string>
+    <string name="ingame_backup_restart">El juego se reinicia para usar los ajustes importados. Se pierde el progreso no guardado.</string>
     <string name="ingame_report_chooser">Enviar el informe de errores</string>
     <string name="ingame_report_failed">No se pudo crear el informe: %1$s</string>
     <string name="ingame_capture_saved">Captura de gráficos guardada</string>
@@ -190,7 +222,7 @@
     <string name="ingame_display_summary">Resolución, formato y efectos</string>
     <string name="ingame_controls_summary">Táctil, giroscopio y comodidad</string>
     <string name="ingame_performance_summary">Núcleos de rendimiento, 60 FPS e indicador</string>
-    <string name="ingame_management_summary">Tarjeta, discos, informes y código fuente</string>
+    <string name="ingame_management_summary">Tarjeta, discos, informes, código y actualizaciones</string>
     <string name="ingame_audio">Audio</string>
     <string name="ingame_audio_summary">Música y efectos de sonido</string>
     <string name="ingame_cheats_summary">General, armas, dinero y texturas</string>
@@ -281,7 +313,7 @@
     <string name="ingame_cheat_random_items">Objetos aleatorios</string>
     <string name="ingame_cheat_random_items_help">Objetos aleatorios: los objetos que hay en las salas de la historia (munición, hierbas y otros objetos de curación, granadas, pesetas, tesoros) se reparten de nuevo en cada sala en la que entres a partir de entonces, y una sala da siempre los mismos objetos hasta que lo desactives y lo vuelvas a activar. Las llaves, las armas, los documentos y demás objetos de la historia siguen como están, así que siempre se puede terminar el juego. Lo que ya recogiste sigue recogido; los enemigos, barriles y cajas mantienen su propio botín. No en Assignment Ada ni en The Mercenaries.</string>
     <string name="ingame_cheat_random_enemies">Enemigos aleatorios</string>
-    <string name="ingame_cheat_random_enemies_help">Enemigos aleatorios: en las salas de la historia los ganados normales aparecen en otros sitios donde había un enemigo, y una sala puede tener un enemigo menos o uno más; una sala se ve siempre igual hasta que desactives y vuelvas a activar la opción. Los jefes, el comerciante, Ashley, Luis, los enemigos especiales, las oleadas y las salas cuyos eventos cuentan enemigos se quedan como están, así que el juego siempre se puede terminar. Las partidas guardadas siguen siendo las del juego. Desde la siguiente sala; no en Assignment Ada, The Mercenaries ni en la parte de Ashley.</string>
+    <string name="ingame_cheat_random_enemies_help">Enemigos aleatorios: en muchas salas los ganados normales aparecen en otros sitios a pocos metros del suyo, y las salas con 10 o más de ellos tienen uno menos o uno más (con 20 o más: hasta dos; donde el juego cuenta sus enemigos solo cambian los sitios). La aldea del principio del capítulo 1 y las salas cuyos eventos necesitan ciertos enemigos se quedan como están, igual que los jefes, el comerciante, Ashley, Luis, los enemigos especiales y las oleadas, así que el juego siempre se puede terminar. Una sala se ve igual cada vez hasta que desactives y vuelvas a activar la opción; las partidas guardadas siguen siendo las del juego. Desde la siguiente sala; no en Assignment Ada, The Mercenaries ni en la parte de Ashley.</string>
     <string name="ingame_cheat_extras">Desbloquear juegos extra</string>
     <string name="ingame_cheat_extras_text">Assignment Ada y The Mercenaries están desbloqueados (también Professional, como al terminar el juego). El menú principal los muestra tras reiniciar. Se pierde el progreso desde tu última partida guardada.</string>
     <string name="ingame_cheat_extras_later">Desbloqueados: Assignment Ada y The Mercenaries aparecerán en el menú principal tras el próximo reinicio.</string>
@@ -322,6 +354,10 @@
     <string name="ingame_act_left">Izquierda</string>
     <string name="ingame_act_back">Retroceder</string>
     <string name="ingame_act_forward">Avanzar</string>
+    <string name="ingame_act_c_up">Stick C arriba (acercar)</string>
+    <string name="ingame_act_c_down">Stick C abajo (alejar)</string>
+    <string name="ingame_act_c_left">Stick C izquierda</string>
+    <string name="ingame_act_c_right">Stick C derecha</string>
     <string name="ingame_map_swapped">%1$s está ahora en %2$s.</string>
     <string name="ingame_map_fixed_key">Esta tecla es fija (cruceta, confirmar, volver).</string>
     <string name="ingame_map_use_keyboard">Pulsa una tecla del teclado.</string>
@@ -334,6 +370,7 @@
     <string name="ingame_map_press">Pulsa una tecla …</string>
     <string name="ingame_map_keyboard">Teclado y ratón</string>
     <string name="ingame_mouse_help">El ratón (Android 8 o superior) pertenece al juego mientras se juega: al moverlo gira la cámara, al apuntar mueve la mira y con los prismáticos la vista. Su rueda hace zoom con la mira telescópica y los prismáticos (hacia arriba: acercar). El menú de la app (F1) libera el puntero.</string>
+    <string name="ingame_keyboard_c_help">El cuchillo: mantén su tecla y mueve el ratón para apuntar, como con las armas. Las teclas del stick C (I, K, J, L si no las cambias) giran la cámara y hacen zoom en la mira y los prismáticos (arriba acerca, abajo aleja), como la rueda del ratón.</string>
     <string name="ingame_mouse_sensitivity">Sensibilidad del ratón</string>
     <string name="ingame_map_controller">Mando</string>
     <string name="ingame_map_device">Dispositivo</string>
@@ -375,7 +412,7 @@
     <string name="ingame_limit_none">nada destacable</string>
     <string name="ingame_bench_welcome">Bienvenido a CubeEvil4</string>
     <string name="ingame_bench_redo">Medir de nuevo</string>
-    <string name="ingame_bench_redo_text">Novedad: el benchmark ahora también mide el procesador, para que la sugerencia se ajuste mejor a este dispositivo. Tus ajustes se quedan como están mientras no aceptes la nueva sugerencia.</string>
+    <string name="ingame_bench_redo_text">Novedad: el benchmark ahora deja una reserva para los lugares más exigentes, para que la resolución se mantenga estable mientras juegas. Tus ajustes se quedan como están mientras no aceptes la nueva sugerencia.</string>
     <string name="ingame_bench_text">La app mide lo que puede este dispositivo y sugiere los mejores ajustes. Para ello el juego va al muelle del lago (lluvia, agua, niebla) y la cámara gira alrededor del personaje. Tarda unos 2–3 minutos; el sonido está apagado. Después vuelves a donde estabas. B / Atrás cancela.</string>
     <string name="ingame_bench_first_note">Se volverá a ofrecer en el próximo inicio.</string>
     <string name="ingame_bench_start">Empezar a medir</string>

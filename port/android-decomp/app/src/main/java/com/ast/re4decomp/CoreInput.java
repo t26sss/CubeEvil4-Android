@@ -525,6 +525,13 @@ public final class CoreInput {
     d.buttons = down ? d.buttons | bits : d.buttons & ~bits;
   }
 
+  /** The touch controls hold one of the GameCube buttons `bits` (L and R: at their end stop). */
+  public boolean touchHeld(int bits) {
+    Device d = devices.get(TOUCH);
+    if (d == null) return false;
+    return (d.buttons & bits) != 0 || ((bits & GC_L) != 0 && d.l2Key) || ((bits & GC_R) != 0 && d.r2Key);
+  }
+
   /** A stick of the touch controls (the C stick or the control stick), -1..1 with y down. */
   public void touchStick(boolean cStick, float x, float y) {
     Device d = device(TOUCH);
@@ -654,6 +661,12 @@ public final class CoreInput {
           mainY = st[1];
           cX = d.rx;  // the mouse (mouseLook)
           cY = d.ry;
+          // the C stick's keys (0.99.15): they win over the mouse, also in the scope and the binoculars (they zoom)
+          float[] c = mapping(true).cStick(dev.held::contains);
+          if (c[0] != 0 || c[1] != 0) {
+            cX = c[0];
+            cY = c[1];
+          }
         }
         if (mainX * mainX + mainY * mainY > lx * lx + ly * ly) {
           lx = mainX;

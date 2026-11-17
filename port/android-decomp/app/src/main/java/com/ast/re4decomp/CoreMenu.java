@@ -45,7 +45,13 @@ final class CoreMenu extends Dialog {
     /** Picture options changed (the preferences hold them). */
     void graphicsChanged();
     void exportAll();
+    /** "Export Player Data (.zip)" (0.99.15, PlayerBackup): the memory card's files, the touch layout, the instant save
+     *  and the settings in one ZIP the player names. */
+    void exportZip();
     void importFiles();
+    /** "Delete All Data" (the menu asked first, 0.99.15, PlayerWipe): the game restarts and the memory card and the
+     *  instant save are deleted before the core opens them. */
+    void wipePlayerData();
     /** "Import other discs" (the menu asked first): the game ends and the start screen opens without starting it. */
     void importDiscs();
     /** "Import texture pack" (Cheats & Mods, TexturePacks): the file picker, then the copy into the app's textures
@@ -109,6 +115,8 @@ final class CoreMenu extends Dialog {
     void autoAimChanged(boolean on);
     /** "Always run": Leon runs without the run key, which walks instead (CoreBridge.setAim). */
     void alwaysRunChanged(boolean on);
+    /** "Gentler QTEs" (0.99.15): Professional's quick-time events as Normal's (CoreBridge.setGentleQte). */
+    void gentleQteChanged(boolean on);
     /** The European discs are imported: the home page offers "Game language". */
     boolean gameLanguages();
     /** The debug build's discs are imported: SELECT held opens the game's debug menu (the button mapping says so). */
@@ -182,6 +190,8 @@ final class CoreMenu extends Dialog {
   private static final int UPDATE_RED = 0xff7a2a26, UPDATE_RED_EDGE = 0xffb2463f;
   // the warning before another player character (08.11.2026): a dark red under the text, the "Update" button's edge
   private static final int WARN_RED = 0xff4e1f1c;
+  // "Delete All Data" in a quiet red (wish of the project owner, 14.11.2026: "dezent rötlich"), as the Benchmark's green
+  private static final int WIPE_RED = 0xff3a2321, WIPE_RED_EDGE = 0xff6e3c37, WIPE_TEXT = 0xffe2c7c2;
   // the Benchmark button: the green of "Up to date", quieter (wish of the project owner, 06.11.2026)
   private static final int BENCH_GREEN = 0xff223a27, BENCH_GREEN_EDGE = 0xff3b6343, BENCH_TEXT = 0xffc3d6c5;
   private final Handler main = new Handler(Looper.getMainLooper());
@@ -204,8 +214,9 @@ final class CoreMenu extends Dialog {
   private TextView hdStatus;
   private Button hdImport;
   private boolean updateAsked;  // the question after an update (PerfProfile.FIRST_ASK) shown in this menu
+  private TextView versionLabel;  // "v0.99.18-rc" left of the update button (0.99.18); null without a versionName
   private int cheatBits;  // the cheat switches as the page sent them last (CoreActivity.CHEATS)
-  private Button exportAll, saveSlot, loadSlot;
+  private Button exportAll, exportZip, saveSlot, loadSlot;
   private final View.OnLayoutChangeListener windowLayout = (v, l, t, r, b, oldL, oldT, oldR, oldB) -> {
     if (r - l != oldR - oldL || b - t != oldB - oldT) resizeWindow();
   };
@@ -235,7 +246,13 @@ final class CoreMenu extends Dialog {
         ViewGroup.LayoutParams.WRAP_CONTENT);
     gap.setMarginEnd(dp(8));
     actions.addView(update, gap); actions.addView(resume);
-    root.addView(new MenuLayout.Header(context, back, title, actions), new LinearLayout.LayoutParams(-1, -2));
+    // the installed version left of them, small, with some room (the project owner, 15.11.2026, "wie in der OUYA
+    // Version links vom Button"; until 0.99.17 in brackets after the start page's title): "v0.99.18-rc", also while the
+    // update button is hidden (no internet); MenuLayout.Header places it (under the buttons where a narrow window
+    // leaves no room beside them)
+    String installed = version();
+    if (installed != null) versionLabel = text("v" + installed, 14, false);
+    root.addView(new MenuLayout.Header(context, back, title, versionLabel, actions), new LinearLayout.LayoutParams(-1, -2));
     separator(root);
     scroll = new ScrollView(context);
     scroll.setFillViewport(false);
@@ -542,6 +559,56 @@ final class CoreMenu extends Dialog {
     b.setSelected(on);
     b.setText(getContext().getString(R.string.ingame_toggle_value, s(name), s(value)));
   }
+  /** "View distance · Normal" and its eyes after the text (the project owner, 15.11.2026): 4 Far, 3 Normal, 2 Medium,
+   *  1 Short, a crossed-out eye None; lit but at None. The eyes are one piece after a space: a narrow button puts them
+   *  on the next line, never cuts the text; TalkBack reads the text alone. */
+  private void viewLabel(Button b, int level) {
+    valueLabel(b, R.string.ingame_potato_view, CoreBridge.VIEW_LABEL[level], !CoreBridge.viewOff(level));
+    String text = b.getText().toString();
+    int eyes = CoreBridge.viewEyes(level);
+    SpannableStringBuilder t = new SpannableStringBuilder(text).append(' ');
+    int start = t.length(); t.append('\uFFFC');
+    t.setSpan(new Eyes(getContext().getDrawable(eyes > 0 ? R.drawable.ic_eye : R.drawable.ic_eye_off), Math.max(1, eyes)),
+        start, t.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    b.setText(t);
+    b.setContentDescription(text);
+  }
+  /** `count` icons side by side in the text (CoreMenu.viewLabel): Lucide's "eye" / "eye-off" (res/drawable/ic_eye*.xml,
+   *  ISC, app/THIRD_PARTY_NOTICES.md), each as high as the text's letters with a little room, drawn in the paint's
+   *  colour, so they follow the button's state as its text does. Identical icons: the same in either direction. */
+  static final class Eyes extends android.text.style.ReplacementSpan {
+    private final android.graphics.drawable.Drawable icon;
+    final int count;
+
+    Eyes(android.graphics.drawable.Drawable icon, int count) {
+      this.icon = icon.mutate();
+      this.count = count;
+    }
+    private static int size(android.graphics.Paint paint) { return Math.round(paint.getTextSize() * 1.15f); }
+    private static int gap(android.graphics.Paint paint) { return Math.round(paint.getTextSize() * .25f); }
+
+    @Override public int getSize(android.graphics.Paint paint, CharSequence text, int start, int end,
+                                 android.graphics.Paint.FontMetricsInt fm) {
+      if (fm != null) {
+        android.graphics.Paint.FontMetricsInt m = paint.getFontMetricsInt();
+        fm.ascent = m.ascent; fm.descent = m.descent; fm.top = m.top; fm.bottom = m.bottom; fm.leading = m.leading;
+      }
+      return count * size(paint) + (count - 1) * gap(paint);
+    }
+
+    @Override public void draw(android.graphics.Canvas canvas, CharSequence text, int start, int end, float x, int top,
+                               int y, int bottom, android.graphics.Paint paint) {
+      int size = size(paint), gap = gap(paint);
+      android.graphics.Paint.FontMetricsInt m = paint.getFontMetricsInt();
+      int iconTop = y + (m.ascent + m.descent) / 2 - size / 2;  // centred on the letters' middle
+      icon.setTint(paint.getColor());
+      for (int i = 0; i < count; i++) {
+        int left = Math.round(x) + i * (size + gap);
+        icon.setBounds(left, iconTop, left + size, iconTop + size);
+        icon.draw(canvas);
+      }
+    }
+  }
   /**
    * Frame skip (0.99.8, one button; wish of the project owner, 10.11.2026): 0 off, 1 Normal (the renderer leaves out a
    * picture while it is behind, CoreBridge.setFrameSkip), 2 Aggressive (the game itself, CoreBridge.setCpuSkip).
@@ -571,6 +638,12 @@ final class CoreMenu extends Dialog {
     return Math.max(0, Math.min(2, g.getInt(SHARPEN_LEVEL, 0)));
   }
   /** The filter "CRT" (0.99.9, wish of the project owner, 11.11.2026): 0 off (the default), 1 light, 2 strong. */
+  /** Bloom (0.99.13): 0 off (the default), 1 light, 2 strong (CoreBridge.setBloom; off while a Potato mode switch
+   *  is on: CoreBridge.bloomSent). */
+  static final String BLOOM_LEVEL = "bloomLevel";
+  static int bloomLevel(SharedPreferences g) {
+    return Math.max(0, Math.min(2, g.getInt(BLOOM_LEVEL, 0)));
+  }
   static final String CRT_LEVEL = "crtLevel";
   static int crtLevel(SharedPreferences g) {
     return Math.max(0, Math.min(2, g.getInt(CRT_LEVEL, 0)));
@@ -602,13 +675,8 @@ final class CoreMenu extends Dialog {
     int[] titles = {R.string.ingame_title, R.string.ingame_display, R.string.ingame_audio,
         R.string.ingame_controls_page, R.string.ingame_performance, R.string.ingame_cheats,
         R.string.ingame_management, R.string.ingame_controller_config};
-    if (page == HOME && version() != null) {
-      SpannableStringBuilder t = new SpannableStringBuilder(s(titles[page]));
-      int start = t.length(); t.append(" (v").append(version()).append(")");
-      t.setSpan(new RelativeSizeSpan(.6f), start, t.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-      t.setSpan(new StyleSpan(Typeface.NORMAL), start, t.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-      title.setText(t);
-    } else title.setText(s(titles[page]));
+    // only the page's name; the installed version is left of the update button since 0.99.18 (versionLabel)
+    title.setText(s(titles[page]));
     if (page == HOME) home(); else if (page == DISPLAY) display(); else if (page == AUDIO) audio();
     else if (page == CONTROLS) controls(); else if (page == PERFORMANCE) performance();
     else if (page == CHEATS) cheats(); else if (page == CONTROLLER) controller();
@@ -848,7 +916,17 @@ final class CoreMenu extends Dialog {
       CoreBridge.setFlares(next);
     });
     valueLabel(flares, R.string.ingame_flares, flareLabels[CoreBridge.flareMode(graphics)], CoreBridge.flareMode(graphics) != 0);
+    // bloom (0.99.13, the project owner: "Ja, einbauen"): the scene's bright parts glow softly; off, light, strong
+    final int[] bloomLabels = {R.string.ingame_off, R.string.ingame_dof_light, R.string.ingame_dof_strong};
+    Button bloom = cellAction(buttonsRow(effects), "", v -> {
+      int next = (bloomLevel(graphics) + 1) % 3;
+      graphics.edit().putInt(BLOOM_LEVEL, next).apply();
+      valueLabel((Button) v, R.string.ingame_bloom, bloomLabels[next], next != 0);
+      CoreBridge.setBloom(CoreBridge.bloomSent(graphics));
+    });
+    valueLabel(bloom, R.string.ingame_bloom, bloomLabels[bloomLevel(graphics)], bloomLevel(graphics) != 0);
     indentedHelp(s(R.string.ingame_flares_help));
+    indentedHelp(s(R.string.ingame_bloom_help));
     // the picture filters one under the other, one general line under both (wish of the project owner, 02.11.2026)
     LinearLayout filters = labelledOptions(R.string.ingame_filter);
     // the GameCube's own softening for the TV (wish of the project owner, 01.11.2026)
@@ -1032,8 +1110,13 @@ final class CoreMenu extends Dialog {
         on -> host.aimInvertChanged(on), R.string.ingame_aim_speed, CoreActivity.AIM_SPEED_MIN,
         CoreActivity.AIM_SPEED_MAX, CoreActivity.AIM_SPEED_STEP,
         CoreActivity.clampAimSpeed(input.getFloat(CoreActivity.AIM_SPEED, 1f)), value -> host.aimSpeedChanged(value));
+    // "Gentler QTEs" (wish of the project owner, 14.11.2026: Professional's quick-time events "not to be done by touch,
+    // just about with a controller"): on by default, the whole row, at the comfort controls' end
+    toggle(buttonsRow(body), R.string.ingame_gentle_qte,
+        input.getBoolean(CoreActivity.GENTLE_QTE, CoreActivity.GENTLE_QTE_DEFAULT), on -> host.gentleQteChanged(on));
     help(R.string.ingame_alternate_help); help(R.string.ingame_latch_help); help(R.string.ingame_auto_aim_help);
-    help(R.string.ingame_always_run_help); help(R.string.ingame_aim_help); help(R.string.ingame_knife_swipe_help);
+    help(R.string.ingame_always_run_help); help(R.string.ingame_gentle_qte_help); help(R.string.ingame_aim_help);
+    help(R.string.ingame_knife_swipe_help);
     // touch aiming (wish of the project owner, 28.10.2026): what aims while L or R is held; since 05.11.2026 a section
     // of its own, a third of the row each
     heading(R.string.ingame_touch_aim);
@@ -1041,6 +1124,7 @@ final class CoreMenu extends Dialog {
         s(R.string.ingame_aim_c_stick)}, new int[] {CoreInput.AIM_MOVE_STICK, CoreInput.AIM_LOOK, CoreInput.AIM_C_STICK},
         input.getInt(CoreActivity.TOUCH_AIM, CoreInput.AIM_MOVE_STICK), 3, mode -> host.touchAimChanged(mode));
     help(R.string.ingame_touch_aim_help);
+    help(R.string.ingame_touch_zoom_help);  // (0.99.15, GitHub #247)
     // PLAYER VIEW above the laser sight (wish of the project owner, 05.11.2026): the far camera (a user's wish,
     // 01.11.2026; patch 0171) in the left half, the field of view (patch 0205) as a slider in the right half
     heading(R.string.ingame_player_view);
@@ -1146,7 +1230,8 @@ final class CoreMenu extends Dialog {
       R.string.ingame_act_left, R.string.ingame_act_right, R.string.ingame_act_action, R.string.ingame_act_run,
       R.string.ingame_act_aim, R.string.ingame_act_fire, R.string.ingame_act_reload, R.string.ingame_act_knife,
       R.string.ingame_act_slash, R.string.ingame_act_ashley, R.string.ingame_act_inventory, R.string.ingame_act_map,
-      R.string.ingame_act_options, R.string.ingame_act_menu};
+      R.string.ingame_act_options, R.string.ingame_act_menu, R.string.ingame_act_c_up, R.string.ingame_act_c_down,
+      R.string.ingame_act_c_left, R.string.ingame_act_c_right};
 
   /** An action's name; the app menu's says "held: debug menu" only with the debug build's discs (the retail discs
    *  have none, 06.11.2026). */
@@ -1225,7 +1310,8 @@ final class CoreMenu extends Dialog {
     ActionMap def = ActionMap.defaults(mapKind), m = host == null ? null : host.mapping(mapKind);
     if (m == null) m = def;
     bindingButtons = new Button[ActionMap.ACTIONS];
-    for (int a = 0; a < ActionMap.ACTIONS; a++) {
+    // (in the page's order: the C stick's keys after the moves, 0.99.15)
+    for (int a : ActionMap.PAGE) {
       if (!ActionMap.available(mapKind, a)) continue;
       final int action = a;
       LinearLayout line = new MenuLayout.Columns(getContext(), -300, 420, false);
@@ -1282,6 +1368,7 @@ final class CoreMenu extends Dialog {
     });
     body.addView(line);
     help(R.string.ingame_mouse_help);
+    help(R.string.ingame_keyboard_c_help);  // (0.99.15, GitHub #247: the knife by the mouse, the C stick's keys)
   }
 
   /** Waits for the key of `action` (a second press on its button: no change); after 8 s it gives up. */
@@ -1396,8 +1483,11 @@ final class CoreMenu extends Dialog {
   @Override public boolean onGenericMotionEvent(MotionEvent e) {
     if (captureAction >= 0 && mapKind == ActionMap.KIND_CONTROLLER && e.getAction() == MotionEvent.ACTION_MOVE
         && (e.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK) {
-      boolean l = Math.max(e.getAxisValue(MotionEvent.AXIS_LTRIGGER), e.getAxisValue(MotionEvent.AXIS_BRAKE)) > 0.6f;
-      boolean r = Math.max(e.getAxisValue(MotionEvent.AXIS_RTRIGGER), e.getAxisValue(MotionEvent.AXIS_GAS)) > 0.6f;
+      // the controller's trigger axes (ControllerAxes: Z/RZ on a wired Xbox pad Android has no key layout for)
+      CoreActivity.EventAxes axes = new CoreActivity.EventAxes().set(e, e.getDevice(), e.getSource());
+      ControllerAxes layout = ControllerAxes.of(axes);
+      boolean l = layout.triggerNow(axes, false) > 0.6f;
+      boolean r = layout.triggerNow(axes, true) > 0.6f;
       boolean newL = l && !captureL, newR = r && !captureR;
       captureL = l;
       captureR = r;
@@ -1495,10 +1585,10 @@ final class CoreMenu extends Dialog {
     heading(R.string.ingame_potato);
     MenuLayout.Buttons potato = buttonsRow(body);
     toggle(potato, R.string.ingame_potato_weather, graphics.getBoolean("weatherEffects", true), on -> {
-      graphics.edit().putBoolean("weatherEffects", on).apply(); CoreBridge.setPotato(CoreBridge.potatoMask(graphics));
+      graphics.edit().putBoolean("weatherEffects", on).apply(); CoreBridge.setPotato(CoreBridge.potatoMask(graphics)); CoreBridge.setBloom(CoreBridge.bloomSent(graphics));
     });
     toggle(potato, R.string.ingame_potato_special, graphics.getBoolean("specialEffects", true), on -> {
-      graphics.edit().putBoolean("specialEffects", on).apply(); CoreBridge.setPotato(CoreBridge.potatoMask(graphics));
+      graphics.edit().putBoolean("specialEffects", on).apply(); CoreBridge.setPotato(CoreBridge.potatoMask(graphics)); CoreBridge.setBloom(CoreBridge.bloomSent(graphics));
     });
     // two more on a user's wish (08.11.2026, through the project owner): the particles of fights, weapons and
     // fires in three steps (each press moves it on: normal, less, none, as the sharpening), and shadows with the
@@ -1510,27 +1600,32 @@ final class CoreMenu extends Dialog {
       int next = (CoreBridge.particleEffects(graphics) + 1) % 3;
       graphics.edit().putInt("particleEffects", next).apply();
       valueLabel((Button) v, R.string.ingame_potato_particles, particleLabels[next], next != 2);
-      CoreBridge.setPotato(CoreBridge.potatoMask(graphics));
+      CoreBridge.setPotato(CoreBridge.potatoMask(graphics)); CoreBridge.setBloom(CoreBridge.bloomSent(graphics));
     });
     // lit while there are particles, "Less" too; off only at "None" (wish of the project owner, 09.11.2026)
     valueLabel(particles, R.string.ingame_potato_particles, particleLabels[CoreBridge.particleEffects(graphics)],
         CoreBridge.particleEffects(graphics) != 2);
     toggle(morePotato, R.string.ingame_potato_shadows, graphics.getBoolean("shadowsLight", true), on -> {
-      graphics.edit().putBoolean("shadowsLight", on).apply(); CoreBridge.setPotato(CoreBridge.potatoMask(graphics));
+      graphics.edit().putBoolean("shadowsLight", on).apply(); CoreBridge.setPotato(CoreBridge.potatoMask(graphics)); CoreBridge.setBloom(CoreBridge.bloomSent(graphics));
     });
-    // a third row (wish of the project owner, 09.11.2026, from the OUYA branch): "View distance" in three steps, each
-    // press moves it on (Normal, Medium, Short; off only at Short), the distance fog nearer and nothing drawn beyond it
-    // (patch 0223, in the core: OpenGL ES and Vulkan alike)
-    final int[] viewLabels = {R.string.ingame_view_normal, R.string.ingame_view_medium, R.string.ingame_view_short};
-    MenuLayout.Buttons lastPotato = buttonsRow(body);
-    Button view = cellAction(lastPotato, "", v -> {
-      int next = (CoreBridge.viewDistance(graphics) + 1) % 3;
+    // a third row (wish of the project owner, 09.11.2026, from the OUYA branch): "View distance", each press moves it
+    // on, the distance fog nearer and nothing drawn beyond it (patch 0223, in the core: OpenGL ES and Vulkan alike);
+    // since 0.99.18 (the project owner, 15.11.2026) five steps, Normal, Medium, Short, None (the 35 % with thick fog),
+    // Far; lit but at None, with eyes after the text (viewLabel). Alone in a plain row over the whole width, as the
+    // buttons' rows lay out one button (MenuLayout.GAP all round): a GridLayout measures its height at the unbroken
+    // text's width, and the eyes put on the next line in a narrow window were cut off
+    Button view = button("", v -> {
+      int next = CoreBridge.nextView(CoreBridge.viewDistance(graphics));
       graphics.edit().putInt(CoreBridge.VIEW_DISTANCE, next).apply();
-      valueLabel((Button) v, R.string.ingame_potato_view, viewLabels[next], next != 2);
+      viewLabel((Button) v, next);
       CoreBridge.setViewDistance(CoreBridge.VIEW_PERCENT[next]);
+      CoreBridge.setBloom(CoreBridge.bloomSent(graphics));
     });
-    valueLabel(view, R.string.ingame_potato_view, viewLabels[CoreBridge.viewDistance(graphics)],
-        CoreBridge.viewDistance(graphics) != 2);
+    LinearLayout.LayoutParams wide = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+        ViewGroup.LayoutParams.WRAP_CONTENT);
+    wide.setMargins(dp(MenuLayout.GAP), dp(MenuLayout.GAP), dp(MenuLayout.GAP), dp(MenuLayout.GAP));
+    body.addView(view, wide);
+    viewLabel(view, CoreBridge.viewDistance(graphics));
     help(R.string.ingame_potato_help);
     help(R.string.ingame_view_help);
     // the picture output under a heading of its own (wish of the project owner, 30.10.2026); since 05.11.2026
@@ -1611,9 +1706,13 @@ final class CoreMenu extends Dialog {
   private void management() {
     heading(R.string.ingame_card); help(R.string.ingame_card_help);
     cardLine = text("", 15, false); cardLine.setPadding(dp(MenuLayout.GAP), 0, dp(MenuLayout.GAP), 0); body.addView(cardLine);
+    // the .zip export beside the .gci one, then the import and "Delete All Data" (wish of the project owner,
+    // 14.11.2026, 0.99.15)
     MenuLayout.Buttons cardButtons = buttonsRow(body);
     exportAll = cellAction(cardButtons, s(R.string.ingame_export), v -> host.exportAll());
-    cellAction(cardButtons, s(R.string.ingame_import), v -> host.importFiles()); refreshCard();
+    exportZip = cellAction(cardButtons, s(R.string.ingame_export_zip), v -> host.exportZip());
+    cellAction(cardButtons, s(R.string.ingame_import), v -> host.importFiles());
+    cardButtons.addButton(wipeButton()); refreshCard();
     // another release over the imported discs (wish of the project owner, 06.11.2026)
     heading(R.string.ingame_discs); help(R.string.ingame_discs_help);
     cellAction(buttonsRow(body), s(R.string.ingame_import_discs), v -> askImportDiscs());
@@ -1628,8 +1727,82 @@ final class CoreMenu extends Dialog {
     // owner, 08.11.2026): emptied by hand here
     heading(R.string.ingame_shader_cache); help(R.string.ingame_shader_cache_help);
     cellAction(buttonsRow(body), s(R.string.ingame_shader_clear), v -> askClearShaders());
+    // "Source and updates" (wish of the project owner, 14.11.2026): the releases are on the same page
     heading(R.string.ingame_source);
     cellAction(buttonsRow(body), getContext().getString(R.string.ingame_source_line, SOURCE_URL), v -> openSource());
+  }
+
+  /** "Delete All Data" in a quiet red (the Benchmark button's way, in red). */
+  private Button wipeButton() {
+    Button wipe = button(s(R.string.ingame_wipe), v -> askWipe());
+    StateListDrawable quiet = new StateListDrawable();
+    quiet.addState(new int[] {android.R.attr.state_focused}, focused());
+    quiet.addState(new int[] {android.R.attr.state_pressed}, shape(WIPE_RED, UPDATE_RED_EDGE, 6));
+    quiet.addState(new int[0], shape(WIPE_RED, WIPE_RED_EDGE, 6));
+    wipe.setBackground(quiet);
+    wipe.setTextColor(FocusLook.text(ColorStateList.valueOf(WIPE_TEXT)));
+    wipe.setEnabled(host != null);
+    return wipe;
+  }
+
+  /**
+   * Before "Delete All Data" (wish of the project owner, 14.11.2026): the red question of the player characters
+   * (warnCharacter) with two buttons, "Cancel" and "Delete" in red; the text says what goes and what stays. The focus
+   * starts on "Cancel"; Back, B, Esc, START, SELECT or a touch beside it cancel, A or Enter press the focused button.
+   * "Delete" closes the menu, and the game restarts without the memory card's data (Host.wipePlayerData).
+   */
+  private void askWipe() {
+    LinearLayout box = column();
+    box.setPadding(dp(24), dp(20), dp(24), dp(18));
+    TextView title = text(s(R.string.ingame_wipe), 20, true);
+    title.setGravity(Gravity.CENTER); title.setTextAlignment(View.TEXT_ALIGNMENT_GRAVITY);
+    box.addView(title, new LinearLayout.LayoutParams(-1, -2));
+    TextView message = text(s(R.string.ingame_wipe_text), 16, false);
+    message.setTextColor(INK); message.setLineSpacing(0, 1.1f);
+    message.setGravity(Gravity.CENTER_HORIZONTAL); message.setTextAlignment(View.TEXT_ALIGNMENT_GRAVITY);
+    ScrollView scroller = new ScrollView(getContext());
+    scroller.addView(message, new ViewGroup.LayoutParams(-1, -2));
+    LinearLayout.LayoutParams between = new LinearLayout.LayoutParams(-1, -2, 1);
+    between.setMargins(0, dp(12), 0, dp(18));
+    box.addView(scroller, between);
+    final AlertDialog[] shown = new AlertDialog[1];
+    Button cancel = button(s(R.string.ingame_wipe_cancel), v -> shown[0].cancel());
+    Button delete = button(s(R.string.ingame_wipe_yes), v -> {
+      shown[0].dismiss(); close();
+      if (host != null) host.wipePlayerData();
+    });
+    StateListDrawable look = new StateListDrawable();
+    look.addState(new int[] {android.R.attr.state_focused}, focused());
+    look.addState(new int[] {android.R.attr.state_pressed}, shape(UPDATE_RED, INK, 6));
+    look.addState(new int[0], shape(UPDATE_RED, UPDATE_RED_EDGE, 6));
+    delete.setBackground(look); delete.setTextColor(FocusLook.text(ColorStateList.valueOf(INK)));
+    for (Button b : new Button[] {cancel, delete}) b.setPadding(dp(24), dp(8), dp(24), dp(8));
+    LinearLayout buttons = row();
+    buttons.setGravity(Gravity.CENTER);
+    LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, -2, 1);
+    half.setMarginEnd(dp(6));
+    buttons.addView(cancel, half);
+    half = new LinearLayout.LayoutParams(0, -2, 1);
+    half.setMarginStart(dp(6));
+    buttons.addView(delete, half);
+    box.addView(buttons, new LinearLayout.LayoutParams(-1, -2));
+    AlertDialog dialog = new AlertDialog.Builder(getContext()).setView(box).create();
+    shown[0] = dialog;
+    GradientDrawable frame = shape(WARN_RED, UPDATE_RED_EDGE, 10); frame.setStroke(dp(2), UPDATE_RED_EDGE);
+    dialog.getWindow().setBackgroundDrawable(frame);
+    dialog.setOnKeyListener((d, key, event) -> {
+      if (key == KeyEvent.KEYCODE_BUTTON_A) {
+        return dialog.getWindow().superDispatchKeyEvent(new KeyEvent(event.getDownTime(), event.getEventTime(),
+            event.getAction(), KeyEvent.KEYCODE_DPAD_CENTER, event.getRepeatCount()));
+      }
+      if (key != KeyEvent.KEYCODE_ESCAPE && !KeyEvent.isGamepadButton(key)) return false;
+      if ((key == KeyEvent.KEYCODE_ESCAPE || key == KeyEvent.KEYCODE_BUTTON_B || key == KeyEvent.KEYCODE_BUTTON_START
+          || key == KeyEvent.KEYCODE_BUTTON_SELECT) && event.getAction() == KeyEvent.ACTION_DOWN
+          && event.getRepeatCount() == 0) dialog.cancel();
+      return true;
+    });
+    dialog.setOnShowListener(d -> cancel.requestFocus());
+    Immersive.show(dialog);
   }
 
   /** "Cheats" at the top of Management (wish and decisions of the project owner, 27.10.2026;
@@ -2062,10 +2235,15 @@ final class CoreMenu extends Dialog {
   void refreshCard() {
     if (cardLine == null || exportAll == null) return;
     String[] rows = CoreBridge.cardList();
+    // the .zip also without saves (the touch layout, the instant save and the settings), not while the card is busy
     if (rows == null) {
       cardLine.setText(s("busy".equals(CoreBridge.cardNote()) ? R.string.ingame_card_busy : R.string.ingame_card_none));
       cardLine.setVisibility(View.VISIBLE); exportAll.setEnabled(false);
-    } else { cardLine.setVisibility(View.GONE); exportAll.setEnabled(rows.length > 0); }
+      if (exportZip != null) exportZip.setEnabled(false);
+    } else {
+      cardLine.setVisibility(View.GONE); exportAll.setEnabled(rows.length > 0);
+      if (exportZip != null) exportZip.setEnabled(true);
+    }
   }
   private String version() {
     try {
@@ -2121,13 +2299,19 @@ final class CoreMenu extends Dialog {
     return Math.min(448, (int) (336.0 * 16.0 / 9.0 / a + 0.5) & ~1);
   }
 
+  /** "Dynamic"'s highest level (halves), as core_mode.cpp takes it: the benchmark's level `cap` for 30 or 60 FPS
+   *  (since 0.99.14 nothing above it; until 0.99.13 half a level more), without one the screen's (`screen`, whole
+   *  levels, autoScale). */
+  static int dynamicTop(int cap, int screen) {
+    return cap >= 2 && cap <= 8 ? cap : 2 * screen;
+  }
+
   /** The resolution the chosen level gives. */
   private void showGraphics() {
     int chosen = scaleHalves(graphics), halves = chosen;
     if (halves < 2 || halves > 8) {
-      // Dynamic: half a level above the benchmark's level for 30 or 60 FPS (4x at most; core_mode.cpp), else the screen's
       int cap = graphics.getInt(graphics.getBoolean("smooth60", false) ? DYN_CAP_60 : DYN_CAP_30, 0);
-      halves = cap >= 2 && cap <= 8 ? Math.min(8, cap + 1) : 2 * autoScale(screenWidth, screenHeight);
+      halves = dynamicTop(cap, autoScale(screenWidth, screenHeight));
     }
     int rows = pictureRows(graphics.getInt("aspect", 0), screenWidth, screenHeight);
     // the numbers as digits 0..9 in every language (Locale.ROOT), the level with the language's separator
@@ -2163,9 +2347,27 @@ final class CoreMenu extends Dialog {
     return name + " (" + f[2] + " blocks)";
   }
 
+  /**
+   * The menu's window animation (0.99.17, wish of the project owner): up from the screen's bottom as it opens, back down
+   * as it closes, however it opens and closes (Android plays it on the window, the game does not wait for it); none
+   * when Android's animations are off.
+   */
+  static int windowAnimations(boolean animationsOn) {
+    return animationsOn ? R.style.CoreMenuSlide : R.style.CoreMenuNoAnimation;
+  }
+
+  /** Android's animations are on: the animator duration scale is not 0 ("Remove animations" sets it to 0). */
+  static boolean animationsOn(Context c) {
+    if (android.os.Build.VERSION.SDK_INT >= 26) return android.animation.ValueAnimator.areAnimatorsEnabled();
+    return android.provider.Settings.Global.getFloat(c.getContentResolver(),
+        android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) != 0f;
+  }
+
   @Override protected void onStart() {
     super.onStart();
     if (getWindow() != null) {
+      // before the window is added (Dialog.show calls onStart first): the opening slides too
+      getWindow().setWindowAnimations(windowAnimations(animationsOn(getContext())));
       getWindow().setBackgroundDrawableResource(android.R.color.transparent);
       resizeWindow();
       getWindow().addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -2188,6 +2390,10 @@ final class CoreMenu extends Dialog {
       width = area.getWidth() - area.getPaddingLeft() - area.getPaddingRight();
       height = area.getHeight() - area.getPaddingTop() - area.getPaddingBottom();
     }
+    // the game's window reaches over the camera's cutout (0.99.17), the menu's window does not (Cutout)
+    final int[] cutout = Cutout.safe(hostDecor);
+    width -= cutout[0] + cutout[2];
+    height -= cutout[1] + cutout[3];
     getWindow().setLayout(Math.min(dp(1000), Math.round(width * .96f)),
         Math.min(dp(650), Math.round(height * .94f)));
   }

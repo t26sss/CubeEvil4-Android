@@ -48,6 +48,7 @@ public class CoreMenuShotTest {
         Configuration config = new Configuration(activity.getResources().getConfiguration());
         config.setLocale(Locale.forLanguageTag(language));
         activity.getResources().updateConfiguration(config, activity.getResources().getDisplayMetrics());
+        CoreMenuLayoutTest.setVersion(activity, "0.99.18-rc-core");
         CoreMenu menu = new CoreMenu(activity, host, false, 1920, 1080);
         Field rootField = CoreMenu.class.getDeclaredField("root"); rootField.setAccessible(true);
         Field bodyField = CoreMenu.class.getDeclaredField("body"); bodyField.setAccessible(true);
@@ -74,6 +75,56 @@ public class CoreMenuShotTest {
             picture.compress(Bitmap.CompressFormat.PNG, 100, out);
           }
         }
+        // the menu's header with the version left of the update button (0.99.18): up to date, an update, no answer from
+        // GitHub (the button hidden); 900 px wide, 480 (the buttons under the title) and 340 (no room beside them: the
+        // version under them)
+        show.invoke(menu, 0, false);
+        String[] states = {"offline", "current", "update"};
+        int[] codes = {AppUpdate.UNKNOWN, AppUpdate.CURRENT, AppUpdate.OLDER};
+        for (int s = 0; s < states.length; s++) {
+          menu.showUpdate(codes[s]);
+          for (int width : new int[] {900, 480, 340}) {
+            root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY));
+            root.layout(0, 0, width, 600);
+            View header = ((android.view.ViewGroup) root).getChildAt(0);
+            int height = header.getBottom() + 12;
+            Bitmap picture = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(picture);
+            canvas.drawColor(0xff191f1c);
+            canvas.save(); canvas.clipRect(0, 0, width, height); root.draw(canvas); canvas.restore();
+            try (FileOutputStream out = new FileOutputStream(new File(folder, language + "-header-" + states[s] + "-" + width + ".png"))) {
+              picture.compress(Bitmap.CompressFormat.PNG, 100, out);
+            }
+          }
+        }
+        menu.showUpdate(AppUpdate.UNKNOWN);
+        // the view distance button in its five levels with the eyes (0.99.18): the button alone, the page 900 px and
+        // 360 px wide (narrow: the eyes may go to the next line)
+        android.content.SharedPreferences graphics = activity.getSharedPreferences(CoreActivity.GRAPHICS_PREFS,
+            android.content.Context.MODE_PRIVATE);
+        int[] levels = {CoreBridge.VIEW_FAR, CoreBridge.VIEW_NORMAL, 1, CoreBridge.VIEW_SHORT, CoreBridge.VIEW_VERY_SHORT};
+        String[] levelNames = {"1-far", "2-normal", "3-medium", "4-short", "5-none"};
+        for (int l = 0; l < levels.length; l++) {
+          graphics.edit().putInt(CoreBridge.VIEW_DISTANCE, levels[l]).apply();
+          show.invoke(menu, 4, false);
+          for (int width : new int[] {900, 360}) {
+            body.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+            body.layout(0, 0, width, body.getMeasuredHeight());
+            Button view = firstButton(body, b -> b.getText().toString().startsWith(activity.getString(R.string.ingame_potato_view)));
+            Bitmap picture = Bitmap.createBitmap(view.getWidth() + 16, view.getHeight() + 16, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(picture);
+            canvas.drawColor(0xff191f1c);
+            canvas.translate(8, 8);
+            view.draw(canvas);
+            try (FileOutputStream out = new FileOutputStream(new File(folder,
+                language + "-view-" + levelNames[l] + "-" + width + ".png"))) {
+              picture.compress(Bitmap.CompressFormat.PNG, 100, out);
+            }
+          }
+        }
+        graphics.edit().remove(CoreBridge.VIEW_DISTANCE).apply();
         // the controller's focus (0.99.11, FocusLook): "Performance" on the start page, a resolution level beside the
         // selected one on the display page, the benchmark button
         show.invoke(menu, 0, false);
@@ -118,6 +169,17 @@ public class CoreMenuShotTest {
           picture.compress(Bitmap.CompressFormat.PNG, 100, out);
         }
         ask.dismiss();
+        // the question before "Delete All Data" (0.99.15), as wide as the warning above; the focus on Cancel
+        show.invoke(menu, 6, false);
+        firstButton(body, b -> b.getText().toString().equals(activity.getString(R.string.ingame_wipe))).performClick();
+        TestLooper.idle();
+        ask = (android.app.AlertDialog) org.robolectric.shadows.ShadowAlertDialog.getLatestAlertDialog();
+        dialogPicture(ask, config, new File(folder, language + "-wipe-question.png"));
+        ask.dismiss();
+        // the memory card's buttons with the controller's focus on "Delete All Data"
+        show.invoke(menu, 6, false);
+        focus(firstButton(body, b -> b.getText().toString().equals(activity.getString(R.string.ingame_wipe))));
+        picture(body, 900, new File(folder, language + "-focus-wipe.png"));
       }
     }
   }
@@ -136,6 +198,21 @@ public class CoreMenuShotTest {
       }
     }
     return null;
+  }
+  /** A question of the menu as Android shows it, 500 px wide (the character warning's width). */
+  private static void dialogPicture(android.app.AlertDialog ask, Configuration config, File file) throws Exception {
+    View decor = ask.getWindow().getDecorView();
+    decor.setLayoutDirection(config.getLayoutDirection());
+    int width = 500;
+    decor.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+    decor.layout(0, 0, width, decor.getMeasuredHeight());
+    decor.getViewTreeObserver().dispatchOnPreDraw();
+    Bitmap picture = Bitmap.createBitmap(width, decor.getMeasuredHeight(), Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(picture);
+    canvas.drawColor(0xff0b0d0c);
+    decor.draw(canvas);
+    try (FileOutputStream out = new FileOutputStream(file)) { picture.compress(Bitmap.CompressFormat.PNG, 100, out); }
   }
   private static void picture(View body, int width, File file) throws Exception {
     body.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),

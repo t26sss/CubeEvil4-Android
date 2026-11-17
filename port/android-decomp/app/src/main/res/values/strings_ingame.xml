@@ -39,6 +39,8 @@
     <string name="ingame_flares_lens">Lens flares</string>
     <string name="ingame_flares_both">Halos + lens flares</string>
     <string name="ingame_flares_help">Lens flares: faint coloured rings across the picture from the brightest lights, as a camera lens makes them. Halos + lens flares: also a soft glow with a fine star at candles, torches and lamps.</string>
+    <string name="ingame_bloom">Bloom</string>
+    <string name="ingame_bloom_help">Bloom: the brightest parts of the scene (lamps, fire, sunlight) glow softly over their surroundings; dark rooms stay dark, the HUD and menus stay sharp. Off while a Potato mode setting is on.</string>
     <string name="ingame_dof">Depth of field</string>
     <string name="ingame_info_hud">Information HUD</string>
     <string name="ingame_hud_fps">FPS game / display</string>
@@ -67,8 +69,10 @@
     <string name="ingame_view_normal">Normal</string>
     <string name="ingame_view_medium">Medium</string>
     <string name="ingame_view_short">Short</string>
+    <string name="ingame_view_very_short">None</string>
+    <string name="ingame_view_far">Far</string>
     <string name="ingame_potato_help">Weather effects: fog banks, rain, water spray. Special effects: steam, heat shimmer, water. Particle effects: blood, dust, smoke, splashes, sparks and fire; Less draws half of them, None leaves out all but fire and explosions, which stay at half as a warning. Shadows &amp; light: off leaves out shadows (also in cut scenes), lens glows and light shafts; the rooms keep their lighting. Each saves graphics work on weaker devices; the spot where a shot hits, hints, the laser and every effect in cut scenes stay.</string>
-    <string name="ingame_view_help">View distance: Medium and Short bring the distance fog nearer, and what lies beyond it is not drawn. That helps where the processor or the number of objects holds the game back, on slower phones at a low resolution: in the village about half of the objects go. At a high resolution the graphics chip is busy with the pixels and gains little. Rooms without distance fog, and those whose fog lies far beyond what you see (the castle, the island), stay as they are.</string>
+    <string name="ingame_view_help">View distance: Medium, Short and None bring the distance fog nearer, and what lies beyond it is not drawn. That helps where the processor or the number of objects holds the game back, on slower phones at a low resolution: in the village about half of the objects go. At a high resolution the graphics chip is busy with the pixels and gains little. None is the shortest: thick fog close by, for slow phones; what is near you is drawn as always. Far keeps the game\'s fog but draws on until the fog hides everything, so far trees and houses no longer pop out of it: a small change that costs a little more. Rooms without distance fog, and those whose fog lies far beyond what you see (the castle, the island), stay as they are.</string>
     <string name="ingame_resolution_line">Resolution: %1$d × %2$d pixels (level %3$s) · screen %4$d × %5$d · applies when the menu closes. Higher levels need more power.</string>
     <string name="ingame_resolution_line_auto">Resolution: %1$d × %2$d pixels (level %3$s, Dynamic) · screen %4$d × %5$d · applies when the menu closes. Dynamic goes a level lower while the GPU cannot keep up.</string>
 
@@ -94,12 +98,15 @@
     <string name="ingame_far_camera">Far camera</string>
     <string name="ingame_auto_aim_help">Auto aim: when you raise your weapon, the aim jumps to the nearest enemy in front of you and follows it for a moment (the game\'s own lock-on).</string>
     <string name="ingame_always_run_help">Always run: Leon runs whenever you move; hold the run button (e.g. B) to walk instead.</string>
+    <string name="ingame_gentle_qte">Gentler QTEs (Professional)</string>
+    <string name="ingame_gentle_qte_help">Gentler QTEs: in Professional the quick-time events (dodging, the knife fight, pressing a button fast) give as much time and need as many presses as in Normal; damage and enemies stay Professional\'s. A finger on the picture presses a quick-time prompt\'s buttons as it touches the screen, in every difficulty.</string>
     <string name="ingame_far_camera_help">Keeps the shoulder camera a little further behind Leon while walking and standing. Aiming and tight spots bring it close as before; it moves smoothly in between.</string>
     <string name="ingame_touch_aim">Touch Aiming</string>
     <string name="ingame_aim_move_stick">Move Stick</string>
     <string name="ingame_aim_touch_area">Touch Area</string>
     <string name="ingame_aim_c_stick">C Stick</string>
     <string name="ingame_touch_aim_help">Touch Aiming: while L or R holds a weapon ready, the touch area aims by swipes on the right half (the aim follows your finger and stops when it stops) or the touch C stick aims like a stick (add it with the gear at the top right). Move Stick: as on the GameCube.</string>
+    <string name="ingame_touch_zoom_help">Zoom in a scope or the binoculars by touch: drag up or down on the right half (with Move Stick or C Stick aiming) or on the touch C stick, or add the zoom buttons + and − with the gear at the top right (they zoom while held).</string>
     <string name="ingame_gyro_sensitivity">Gyro sensitivity</string>
     <string name="ingame_gyro_invert_v">Invert vertical</string>
     <string name="ingame_gyro_invert_h">Invert horizontal</string>
@@ -118,10 +125,15 @@
 
     <!-- Memory card -->
     <string name="ingame_card">Memory card (slot A)</string>
-    <string name="ingame_card_help">Export and Import Player Data: your saves as .gci (for Dolphin or GameCube) and a touch layout of your own as CubeEvil4-touch-layout.json. The import brings both back.</string>
+    <string name="ingame_card_help">Export Player Data: your saves as .gci (for Dolphin or GameCube) with a touch layout of your own as CubeEvil4-touch-layout.json, or everything in one .zip (saves, instant save, RetroTouch and the app\'s settings). The import brings it back. Delete All Data empties the memory card.</string>
     <string name="ingame_card_busy">The card is in use (the game saves or loads) or the game is still loading – close the menu and open it again in a moment.</string>
     <string name="ingame_card_none">No memory card.</string>
     <string name="ingame_export">Export Player Data (.gci)</string>
+    <string name="ingame_export_zip">Export Player Data (.zip)</string>
+    <string name="ingame_wipe">Delete All Data</string>
+    <string name="ingame_wipe_text">All saves on the memory card and the instant save will be deleted, as if the card were formatted. RetroTouch stays (your touch layout and its settings), and so do the discs, the HD textures and the app\'s settings. This cannot be undone: to keep your saves, export them first (.zip). The game restarts for it.</string>
+    <string name="ingame_wipe_cancel">Cancel</string>
+    <string name="ingame_wipe_yes">Delete</string>
     <string name="ingame_import">Import Player Data (.gci, .zip, .raw)</string>
     <string name="ingame_discs">Discs</string>
     <string name="ingame_discs_help">To play another version: the game ends, and you import both of its discs on the start screen. Saves, memory card and settings stay.</string>
@@ -138,7 +150,7 @@
     <string name="ingame_report_save">Save report …</string>
 
     <!-- Source -->
-    <string name="ingame_source">Source</string>
+    <string name="ingame_source">Source and updates</string>
     <string name="ingame_source_line">More on this port at %1$s</string>
     <string name="ingame_no_browser">No browser on this device</string>
 
@@ -183,6 +195,25 @@
     <string name="ingame_touch_imported">Touch layout imported: in use right away.</string>
     <string name="ingame_touch_skipped">Touch layout skipped: yours stays.</string>
     <string name="ingame_touch_import_bad">Touch layout not imported: %1$s</string>
+    <plurals name="ingame_backup_saved">
+        <item quantity="one">%1$d file of the memory card saved in %2$s.</item>
+        <item quantity="other">%1$d files of the memory card saved in %2$s.</item>
+    </plurals>
+    <string name="ingame_backup_with_instant">With the instant save.</string>
+    <string name="ingame_backup_with_touch">With your touch layout.</string>
+    <string name="ingame_backup_with_settings">With the settings of the app and of RetroTouch.</string>
+    <string name="ingame_backup_instant_imported">Instant save imported.</string>
+    <string name="ingame_backup_instant_exists">You have an instant save already. Replace it with the imported one?</string>
+    <string name="ingame_backup_instant_skipped">Instant save skipped: yours stays.</string>
+    <string name="ingame_backup_instant_bad">Instant save not imported: %1$s</string>
+    <string name="ingame_backup_settings_exists">Replace your settings with the imported ones (controls, RetroTouch, game, graphics and sound)?</string>
+    <string name="ingame_backup_settings_imported">Settings imported.</string>
+    <string name="ingame_backup_settings_skipped">Settings skipped: yours stay.</string>
+    <string name="ingame_backup_settings_same">Settings: the same as yours.</string>
+    <string name="ingame_backup_settings_bad">Settings not imported: %1$s</string>
+    <string name="ingame_backup_graphics_kept">The backup was made on another device (%1$s): the resolution, the renderer and the other performance settings of this device stay.</string>
+    <string name="ingame_backup_newer">The file comes from a newer version (%1$s): settings this version does not have are left out.</string>
+    <string name="ingame_backup_restart">The game restarts to use the imported settings. Progress not saved is lost.</string>
     <string name="ingame_report_chooser">Send the error report</string>
     <string name="ingame_report_failed">The report could not be made: %1$s</string>
     <string name="ingame_capture_saved">Graphics capture saved</string>
@@ -203,7 +234,7 @@
     <string name="ingame_display_summary">Resolution, picture &amp; effects</string>
     <string name="ingame_controls_summary">Touch, gyro &amp; comfort controls</string>
     <string name="ingame_performance_summary">Performance cores, 60 FPS &amp; display</string>
-    <string name="ingame_management_summary">Memory card, discs, reports &amp; source</string>
+    <string name="ingame_management_summary">Memory card, discs, reports, source &amp; updates</string>
     <string name="ingame_audio">Audio</string>
     <string name="ingame_audio_summary">Music &amp; sound effects</string>
     <string name="ingame_cheats_summary">General, weapons, money &amp; textures</string>
@@ -294,7 +325,7 @@
     <string name="ingame_cheat_random_items">Random items</string>
     <string name="ingame_cheat_random_items_help">Random items: the items lying in the story\'s rooms (ammo, herbs and other recovery items, grenades, pesetas, treasures) are dealt anew in every room you enter from then on, and a room always gives the same items until you switch this off and on again. Keys, weapons, files and other story items stay as they are, so the game can always be finished. Items you already picked up stay picked up; enemies, barrels and boxes keep their own drops. Not in Assignment Ada and The Mercenaries.</string>
     <string name="ingame_cheat_random_enemies">Random enemies</string>
-    <string name="ingame_cheat_random_enemies_help">Random enemies: in the story\'s rooms the ordinary Ganados stand at other places where an enemy stood, and a room may get one enemy fewer or one more; a room always looks the same until you switch this off and on again. Bosses, the merchant, Ashley, Luis, special enemies, waves and rooms whose events count enemies stay as they are, so the game can always be finished. Saves stay the game\'s own. From the next room on; not in Assignment Ada, The Mercenaries and Ashley\'s part.</string>
+    <string name="ingame_cheat_random_enemies_help">Random enemies: in many rooms the ordinary Ganados stand at other places a few metres from their own, and rooms with 10 or more of them get one fewer or one more (20 or more: up to two; where the game counts its enemies only the places change). The village at the start of chapter 1 and rooms whose events need certain enemies stay as they are, as do bosses, the merchant, Ashley, Luis, special enemies and waves, so the game can always be finished. A room looks the same each time until you switch this off and on again; saves stay the game\'s own. From the next room on; not in Assignment Ada, The Mercenaries and Ashley\'s part.</string>
     <string name="ingame_cheat_extras">Unlock extra games</string>
     <string name="ingame_cheat_extras_text">Assignment Ada and The Mercenaries are unlocked (Professional as well, as after finishing the game). The title menu shows them after a restart. Progress since your last save is lost.</string>
     <string name="ingame_cheat_extras_later">Unlocked: Assignment Ada and The Mercenaries are in the title menu after the next restart.</string>
@@ -335,6 +366,10 @@
     <string name="ingame_act_left">Move Left</string>
     <string name="ingame_act_back">Move Back</string>
     <string name="ingame_act_forward">Move Forward</string>
+    <string name="ingame_act_c_up">C Stick Up (zoom in)</string>
+    <string name="ingame_act_c_down">C Stick Down (zoom out)</string>
+    <string name="ingame_act_c_left">C Stick Left</string>
+    <string name="ingame_act_c_right">C Stick Right</string>
     <string name="ingame_map_swapped">%1$s is now on %2$s.</string>
     <string name="ingame_map_fixed_key">This key is fixed (D-pad, confirm, back).</string>
     <string name="ingame_map_use_keyboard">Press a key of the keyboard.</string>
@@ -347,6 +382,7 @@
     <string name="ingame_map_press">Press a key …</string>
     <string name="ingame_map_keyboard">Keyboard &amp; Mouse</string>
     <string name="ingame_mouse_help">The mouse (Android 8 and later) belongs to the game while it runs: moving it turns the camera, while aiming it moves the aim and in the binoculars the view. Its wheel zooms the scope and the binoculars (up zooms in). The app menu (F1) frees the pointer.</string>
+    <string name="ingame_keyboard_c_help">The knife: hold its key and move the mouse to aim it, as with the weapons. The C stick\'s keys (I, K, J, L unless you change them) turn the camera and zoom the scope and the binoculars (up zooms in, down out), as the mouse wheel does.</string>
     <string name="ingame_mouse_sensitivity">Mouse Sensitivity</string>
     <string name="ingame_map_controller">Controller</string>
     <string name="ingame_map_device">Device</string>
@@ -388,7 +424,7 @@
     <string name="ingame_limit_none">nothing noticeable</string>
     <string name="ingame_bench_welcome">Welcome to CubeEvil4</string>
     <string name="ingame_bench_redo">Measure again</string>
-    <string name="ingame_bench_redo_text">New: the benchmark now also measures the processor, so the suggestion fits this device better. Your settings stay as they are unless you accept the new suggestion.</string>
+    <string name="ingame_bench_redo_text">New: the benchmark now leaves a reserve for heavier places, so the resolution stays steady while you play. Your settings stay as they are unless you accept the new suggestion.</string>
     <string name="ingame_bench_text">The app measures what this device can do and suggests the best settings. The game goes to the lake\'s dock for it (rain, water, fog) and the view turns around the player. It takes about 2–3 minutes; the sound is off. Afterwards you are back where you were. B / Back cancels.</string>
     <string name="ingame_bench_first_note">It is offered again at the next start.</string>
     <string name="ingame_bench_start">Start measuring</string>

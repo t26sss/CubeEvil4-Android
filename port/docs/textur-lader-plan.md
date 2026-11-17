@@ -67,10 +67,15 @@ Done: CubeEvil4-textures-512.c4tex on your desktop (812 MB).
 Copy this file to your phone, then in CubeEvil4: Menu, Cheats & Mods, Import texture pack.
 ```
 
-Für Tests und für dich geht dasselbe mit einem einzigen PowerShell-Befehl, ohne Fragen:
+**Seit 1.4 (14.11.2026)** gibt es dazu eine echte Windows-Version mit Fenster: `CubeEvil4-TexturePacker.exe` ist
+jetzt das Fenster, die Version oben (Fragen im Konsolenfenster und Befehlszeile) heißt
+`CubeEvil4-TexturePacker-Console.exe`. Beschreibung: `port/docs/textur-packer-windows.md`.
+
+Für Tests und für dich geht dasselbe mit einem einzigen PowerShell-Befehl, ohne Fragen (bis 1.3 hieß die Datei
+`CubeEvil4-TexturePacker.exe`):
 
 ```powershell
-& "E:\Development\Android\builds\textures\CubeEvil4-TexturePacker.exe" -in "E:\Development\Android\RE4-Mods\Resident Evil 4 HD Project" -size 512 -out "E:\Development\Android\builds\textures"
+& "E:\Development\Android\builds\textures\CubeEvil4-TexturePacker-Console.exe" -in "E:\Development\Android\RE4-Mods\Resident Evil 4 HD Project" -size 512 -out "E:\Development\Android\builds\textures"
 ```
 
 ### Was es tut
@@ -317,6 +322,12 @@ und Vulkan, An/Aus mitten im Spiel, Benchmark mit und ohne. Die genauen PowerShe
 | T2 | Kennung in `GxCore::Upload`, Nachschlagen im Paket, Trefferliste im Protokoll | Trefferquote je Raum am PC, alle drei Disc-Arten |
 | T3 | Ersatzbilder anzeigen (GLES), Verkleinerungsstufen, Grenze für den Grafikspeicher | Vorher/Nachher-Bilder am PC |
 | T4 | Nachladen ohne Ruckeln: Warten bei schwarzem Bild, Hintergrund, Gedächtnis je Raum | Ladezeiten und längste Bildzeit am PC |
+
+**T4 gebaut in 0.99.18** (Branch `release-candidate`, Abschnitt 3 von 0.99.18 in `whole-program-status.md`): Lesen
+immer im Hintergrund (`TexLoader`, ein eigener Faden), das Originalbild bis dahin, Einsetzen am Anfang eines Bildes
+mit Zeitlimit (`GxCore::ApplyHd`). Abweichend vom Plan: kein Warten bei schwarzem Bild (der erste Blick in einen Raum
+ist meist ein Einblenden, kein schwarzes Bild des Spiels; bei schwarzem Bild wird nur mehr je Bild eingesetzt) und
+kein Gedächtnis je Raum (nicht nötig, siehe Messung).
 | T5 | Vulkan-Weg | Bilder am PC (Vulkan), gleiche Trefferzahl |
 | T6 | App: Menü „Cheats & Mods“, Import mit Platzprüfung, An/Aus, Schärfe, Löschen, Größe, Hilfetext, 11 Sprachen, README | App-Tests, Übersetzungsprüfung |
 | T7 | Test-APK nach `builds\textures\`, Retroid-Test (nach Freigabe), Messungen | auf dem Retroid |

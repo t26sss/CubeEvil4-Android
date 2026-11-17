@@ -134,6 +134,9 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   // the menu's "Auto aim" (the game's own lock-on) and "Always run" (the run key walks instead; wish of the
   // project owner, 30.10.2026; CoreBridge.setAim, runtime/aim_options.cpp; both off)
   static final String AUTO_AIM = "autoAim", ALWAYS_RUN = "alwaysRun", FAR_CAMERA = "farCamera";
+  /** "Gentler QTEs" (0.99.15): Professional's quick-time events as Normal's; on by default. */
+  static final String GENTLE_QTE = "gentleQte";
+  static final boolean GENTLE_QTE_DEFAULT = true;
   static final float AIM_SPEED_MIN = 0.5f, AIM_SPEED_MAX = 3f, AIM_SPEED_STEP = 0.25f;
   // the menu's "Field of view" (PLAYER VIEW; wish of the project owner, 05.11.2026): degrees added to the shoulder
   // camera's vertical field of view, -FOV_RANGE .. FOV_RANGE, 0 as the game (CoreBridge.setFov, patch 0205)
@@ -152,7 +155,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   static final String CHEATS = "cheats";
   /** The cheat "Random enemies" (0.99.12): its seed, 0 off (CoreBridge.setEnemyRandom). */
   static final String ENEMY_SEED = "enemySeed";
-  private static final int REQUEST_EXPORT_ALL = 2, REQUEST_IMPORT = 3, REQUEST_REPORT = 4, REQUEST_TEXTURES = 5;
+  private static final int REQUEST_EXPORT_ALL = 2, REQUEST_IMPORT = 3, REQUEST_REPORT = 4, REQUEST_TEXTURES = 5,
+      REQUEST_EXPORT_ZIP = 6;
   // "Import texture pack" (Cheats & Mods, TexturePacks): who hears the import, its cancel switch
   private TexturePacks.Listener textureListener;
   private final java.util.concurrent.atomic.AtomicBoolean textureCancel = new java.util.concurrent.atomic.AtomicBoolean();
@@ -205,8 +209,14 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   private CoreMenu menu;
   private boolean menuSupported, tools, selectDown, selectHeld;
   private final List<byte[]> pendingImports = new ArrayList<>();
+  // Android's thermal status and headroom for the error log and the report (0.99.15, ThermalWatch)
+  private ThermalWatch thermal;
   // the touch layout file the chosen files hold (TouchLayoutFile), after the .gci files
   private byte[] pendingTouch;
+  // the parts of the app's own ZIP (PlayerBackup, 0.99.15) after the touch layout: the instant save, the settings file
+  // with the ZIP's manifest (where it was made); whether the import put settings in place (then a restart is offered)
+  private byte[] pendingInstant, pendingSettings, pendingManifest;
+  private boolean importedSettings;
   // (read by the picture's beat on its own thread too)
   private volatile boolean resumed;
   // GPU step c: the picture drawn at each vsync or, on a faster screen, at every n-th
@@ -249,6 +259,10 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   static final int FPS_PLACES = 5;
   private int fpsPlace;
   private WindowInsets fpsInsets;
+  // the camera cutout's last line in the error log (cutoutInsets)
+  private String cutoutLine = "";
+  // the touch controls' B at the last touch event (benchTouch: a press ends the benchmark)
+  private boolean touchBenchB;
   private long fpsFrames = -1, fpsPictures, fpsSince;
   // a game that stands without a pause (a hang): reported once per stand
   private long lastFrames = -1, framesSince;
@@ -269,12 +283,26 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     // no force dark over the game, its touch controls and displays (FocusLook, 0.99.11)
     FocusLook.noForceDark(getWindow());
     hideSystemUi();
+    // the game's window over the camera's cutout too (0.99.17, as first in 0.99.15; a user's Moto G22: a black strip on
+    // the camera's side); the touch controls cover all of it, their layouts keep their spots (Cutout, TouchFrame)
+    Cutout.extend(getWindow());
     ImportManager imports = ((Re4Application) getApplication()).imports;
     // test switches of the core (port/scripts/test-core-app.ps1 passes them)
     settings = getIntent().getStringExtra("coreSettings");
     if (settings == null) settings = "";
     // the error log of this run (the one before is kept for the report)
     CoreLog.start(this, settings);
+    // how hot the device is: at the start, at each change, the headroom every 10 s (ThermalWatch; only told)
+    thermal = ThermalWatch.forDevice(this, SystemClock.elapsedRealtime());
+    thermal.start(SystemClock.elapsedRealtime());
+    // on to the renderer: Dynamic's step lines name the heat
+    thermal.setListener((status, headroom) -> {
+      try {
+        CoreBridge.setThermal(status, headroom);
+      } catch (UnsatisfiedLinkError e) {
+        thermal.setListener(null);
+      }
+    });
     shownLanguage = language();
     Log.i(TAG, "app menu: " + shownLanguage);
     // the shaders the renderers built, kept between runs (no compile stutter the second time); since 0.99.4 where
@@ -306,6 +334,10 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     }
     // the app's own folder (on the shared storage, else internal), where test switches write (RE4_AUDIO_WAV)
     AppStorage.base(this);
+    // Management -> "Delete All Data" (0.99.15, PlayerWipe): the memory card and the instant save go before the core
+    // opens them; the core then makes a new, formatted card
+    String wiped = PlayerWipe.prepare(this, imports.root);
+    if (!wiped.isEmpty()) Log.i(TAG, wiped);
     applyGraphics();
     startProblem = imports.root == null ? "No data folder"
         : CoreBridge.start(imports.root.getAbsolutePath(), coreSettings);
@@ -405,6 +437,15 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     gyroAim.setEnabled(inputPrefs.getBoolean(GYRO_AIM, false));
     root.addView(touchControls.view(), new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
         FrameLayout.LayoutParams.MATCH_PARENT));
+    // the camera's cutout (Cutout, 0.99.17): the touch controls cover the whole window, their layouts follow the
+    // camera's side; the error log says what the window got. Again when the screen turns by 180 degrees.
+    root.setOnApplyWindowInsetsListener((v, insets) -> {
+      // the touch layouts for the camera's side (TouchFrame); the log after the layout: the window's size and place are
+      // known then
+      touchControls.setSafeInsets(Cutout.safe(insets));
+      v.post(() -> cutoutInsets(v, insets));
+      return v.onApplyWindowInsets(insets);
+    });
     benchFlow = new BenchmarkFlow(benchHost);
     if (startProblem.isEmpty()) {
       SharedPreferences g = getSharedPreferences(GRAPHICS_PREFS, MODE_PRIVATE);
@@ -423,6 +464,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       CoreBridge.setFxaa(g.getBoolean("fxaa", false));
       CoreBridge.setSharpen(CoreMenu.sharpenLevel(g));
       CoreBridge.setCrt(CoreMenu.crtLevel(g));
+      CoreBridge.setBloom(CoreBridge.bloomSent(g));
       CoreBridge.setColour(CoreMenu.colourMode(g), CoreMenu.colourLevel(g));
       CoreBridge.setTvFilter(g.getBoolean("tvFilter", false));
       CoreBridge.setPsx(g.getBoolean("psx", false));
@@ -441,6 +483,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       CoreBridge.setPotato(CoreBridge.potatoMask(g));
       CoreBridge.sendSoundVolume(g);
       CoreBridge.setAim(aimInvert, aimSpeed, autoAim, alwaysRun);
+      CoreBridge.setGentleQte(getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).getBoolean(GENTLE_QTE, GENTLE_QTE_DEFAULT));
       // the cheat switches kept from the last run (a test script's RE4_CHEATS wins)
       int cheats = getSharedPreferences(GAME_PREFS, MODE_PRIVATE).getInt(CHEATS, 0);
       if (!settings.contains("RE4_CHEATS=")) {
@@ -580,6 +623,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     if (destroyed) return;
     touchControls.update();
     updateFps();
+    if (thermal != null) thermal.tick(SystemClock.elapsedRealtime());
     checkHang();
     checkCoreProcess();
     checkDiscProblem();
@@ -612,6 +656,33 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
         time, time ? InfoHud.time(CoreBridge.cheatAction(InfoHud.PLAY_TIME_COMMAND)) : "");
     fpsView.setText(text);
     fpsView.setVisibility(fpsPlace != 0 && menuSupported && !text.isEmpty() ? View.VISIBLE : View.GONE);
+  }
+
+  /**
+   * The window's insets changed (laid out, turned by 180 degrees, the bars): the cutout's line into the error log when
+   * it says something new (Cutout.describe).
+   */
+  private void cutoutInsets(View root, WindowInsets insets) {
+    final int[] safe = Cutout.safe(insets);
+    final int[] at = new int[2];
+    root.getLocationOnScreen(at);
+    int screenWidth = 0, screenHeight = 0;
+    if (Build.VERSION.SDK_INT >= 30) {
+      final android.graphics.Rect b = getWindowManager().getMaximumWindowMetrics().getBounds();
+      screenWidth = b.width();
+      screenHeight = b.height();
+    } else {
+      final android.graphics.Point p = new android.graphics.Point();
+      getWindowManager().getDefaultDisplay().getRealSize(p);
+      screenWidth = p.x;
+      screenHeight = p.y;
+    }
+    final String line = Cutout.describe(root.getWidth(), root.getHeight(), at[0], at[1], screenWidth, screenHeight,
+        safe, Cutout.mode(Build.VERSION.SDK_INT), getWindow().getAttributes().layoutInDisplayCutoutMode);
+    if (!line.equals(cutoutLine) && root.getWidth() > 0) {
+      cutoutLine = line;
+      Log.i(TAG, line);
+    }
   }
 
   /** The FPS display at its place, kept clear of rounded corners, a cutout and bars that stay (CornerInset). */
@@ -864,6 +935,23 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       startForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), REQUEST_EXPORT_ALL);
     }
 
+    @Override public void exportZip() {
+      // the card must be readable (the game neither saves nor loads), else no file is made
+      if (CoreBridge.cardList() == null) {
+        message(getString("busy".equals(CoreBridge.cardNote()) ? R.string.ingame_card_busy : R.string.ingame_card_unreadable));
+        return;
+      }
+      Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+          .setType("application/zip").putExtra(Intent.EXTRA_TITLE, PlayerBackup.fileName(System.currentTimeMillis()));
+      startForResult(i, REQUEST_EXPORT_ZIP);
+    }
+
+    @Override public void wipePlayerData() {
+      PlayerWipe.request(CoreActivity.this);
+      Log.i(TAG, "menu: Delete All Data: the memory card and the instant save go at the restart, before the core");
+      restartIntoGame("all player data deleted");
+    }
+
     @Override public void importDiscs() { openStartScreen("menu: import other discs"); }
 
     @Override public void importTexturePack(TexturePacks.Listener listener) {
@@ -981,6 +1069,12 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).edit().putBoolean(ALWAYS_RUN, on).apply();
       alwaysRun = on;
       CoreBridge.setAim(aimInvert, aimSpeed, autoAim, alwaysRun);
+    }
+
+    @Override public void gentleQteChanged(boolean on) {
+      getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).edit().putBoolean(GENTLE_QTE, on).apply();
+      CoreBridge.setGentleQte(on);
+      Log.i(TAG, "gentler QTEs " + (on ? "on: Professional's quick-time events as Normal's" : "off"));
     }
 
     @Override public void stickShapeChanged(int deadZone, int range) {
@@ -1158,11 +1252,37 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
 
     @Override public void editing(boolean on) { touchEditing(on); }
 
-    @Override public void send() { CoreActivity.this.send(); }
+    @Override public void send() {
+      benchTouch();
+      CoreActivity.this.send();
+    }
 
     @Override public void r3(boolean down) {
       Log.i(TAG, "touch R3 -> app " + (tools ? "graphics capture" : "nothing (tools off)"));
       if (down) capture();
+    }
+
+    // the touch zoom buttons (0.99.15, GitHub #247): a notch of the wheel at once and every ZOOM_REPEAT_MS while held
+    @Override public void zoom(int direction, boolean down) {
+      main.removeCallbacks(touchZoom);
+      touchZoomDirection = down ? direction : 0;
+      if (!down) return;
+      if (touchZoomLines++ < 10) {
+        Log.i(TAG, "touch zoom " + (direction > 0 ? "in" : "out")
+            + (input.zoomView() ? " (the scope or the binoculars)" : " (no scope, no binoculars: nothing)"));
+      }
+      touchZoom.run();
+    }
+  };
+
+  /** While a touch zoom button is held: a notch, again after ZOOM_REPEAT_MS (an eighth of the zoom each). */
+  private static final long ZOOM_REPEAT_MS = 150;
+  private int touchZoomDirection, touchZoomLines;
+  private final Runnable touchZoom = new Runnable() {
+    @Override public void run() {
+      if (touchZoomDirection == 0 || destroyed) return;
+      CoreBridge.zoom(touchZoomDirection);
+      main.postDelayed(this, ZOOM_REPEAT_MS);
     }
   };
 
@@ -1218,11 +1338,14 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     try {
       if (request == REQUEST_EXPORT_ALL && data.getData() != null) {
         exportAllInto(data.getData());
+      } else if (request == REQUEST_EXPORT_ZIP && data.getData() != null) {
+        exportZipInto(data.getData());
       } else if (request == REQUEST_TEXTURES && data.getData() != null) {
         importTextures(data.getData());
       } else if (request == REQUEST_IMPORT) {
         pendingImports.clear();
-        pendingTouch = null;
+        pendingTouch = pendingInstant = pendingSettings = pendingManifest = null;
+        importedSettings = false;
         if (data.getClipData() != null) {
           for (int i = 0; i < data.getClipData().getItemCount(); i++) readImport(data.getClipData().getItemAt(i).getUri());
         } else if (data.getData() != null) {
@@ -1289,7 +1412,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     Uri folder = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree));
     // the player's own touch layout as a file of its own (wish of the project owner, 07.11.2026); none: nothing
     int[] screen = touchScreen();
-    byte[] touchFile = TouchLayoutFile.export(touchPrefs(), TouchControls.defaultLayout(), screen[0], screen[1],
+    byte[] touchFile = TouchLayoutFile.export(touchPrefs(), TouchControls.defaultLayout(), touchWindowDefaults(),
+        screen[0], screen[1], touchSafe(),
         appVersion());
     int done = 0;
     StringBuilder problems = new StringBuilder();
@@ -1329,6 +1453,16 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     return getSharedPreferences(TouchLayoutFile.PREFS, Context.MODE_PRIVATE);
   }
 
+  /** The camera cutout's safe insets the touch layouts follow (TouchFrame; zeros without touch controls). */
+  private int[] touchSafe() {
+    return touchControls != null ? touchControls.safeInsets() : new int[4];
+  }
+
+  /** The default touch layout of this window, laid into the camera's safe area (TouchControls.windowDefaults). */
+  private com.ast.retrotouch.RetroTouchLayout touchWindowDefaults() {
+    return touchControls != null ? touchControls.windowDefaults() : TouchControls.defaultLayout();
+  }
+
   /** The touch controls' size in pixels (the window, else the display): what RetroTouch's parts refer to. */
   private int[] touchScreen() {
     View v = touchControls != null ? touchControls.view() : null;
@@ -1355,9 +1489,15 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       // a .gci, a whole Dolphin card (.raw, .gcp) or a ZIP of either: the .gci files of this game
       StringBuilder found = new StringBuilder();
       try {
-        List<byte[]> touch = new ArrayList<>();
-        pendingImports.addAll(SaveImport.files(CoreLog.readAll(in), found, touch));
-        if (!touch.isEmpty()) pendingTouch = touch.get(touch.size() - 1);
+        SaveImport.Found parts = SaveImport.read(CoreLog.readAll(in), found);
+        pendingImports.addAll(parts.gci);
+        if (!parts.touch.isEmpty()) pendingTouch = parts.touch.get(parts.touch.size() - 1);
+        // the app's own ZIP (PlayerBackup): its instant save and its settings with its manifest
+        if (parts.instant != null) pendingInstant = parts.instant;
+        if (parts.settings != null) {
+          pendingSettings = parts.settings;
+          pendingManifest = parts.manifest;
+        }
       } catch (IllegalArgumentException e) {
         throw new IOException(e.getMessage());
       }
@@ -1392,8 +1532,29 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
         importTouch(report);
         return;
       }
-      if (report.length() > 0) message(report.toString().trim());
+      if (pendingInstant != null) {
+        importInstant(report);
+        return;
+      }
+      if (pendingSettings != null) {
+        importSettings(report);
+        return;
+      }
       if (menu != null) menu.refreshCard();
+      if (importedSettings) {
+        // the settings are in place: most take effect at the next start of the game (renderer, language, the
+        // controls the activity keeps), so it offers the restart (progress not saved is lost)
+        importedSettings = false;
+        Immersive.show(new AlertDialog.Builder(this)
+            .setMessage(report.toString().trim() + "\n\n" + getString(R.string.ingame_backup_restart))
+            .setPositiveButton(R.string.ingame_restart, (d, w) -> {
+              if (menu != null) menu.dismiss();
+              restartIntoGame("settings imported");
+            })
+            .setNegativeButton(R.string.ingame_later, null).create());
+        return;
+      }
+      if (report.length() > 0) message(report.toString().trim());
       return;
     }
     byte[] gci = pendingImports.remove(0);
@@ -1434,8 +1595,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       return;
     }
     SharedPreferences prefs = touchPrefs();
-    String saved = TouchLayoutFile.saved(prefs);
-    if (TouchLayoutFile.ownSaved(prefs, TouchControls.defaultLayout()) && !TouchLayoutFile.same(saved, parsed.layout)) {
+    if (TouchLayoutFile.ownSaved(prefs, TouchControls.defaultLayout(), touchWindowDefaults())
+        && !TouchLayoutFile.sameAsSaved(prefs, parsed)) {
       Immersive.show(new AlertDialog.Builder(this)
           .setMessage(R.string.ingame_touch_import_exists)
           .setPositiveButton(R.string.ingame_replace, (d, w) -> {
@@ -1454,10 +1615,226 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     importNext(report);
   }
 
+  /** The instant save of the app's ZIP (PlayerBackup): replaces the player's only when asked; the core reads the slot
+   *  file at each look at it (runtime/instant_store.cpp), so it is in use at once. */
+  private void importInstant(StringBuilder report) {
+    byte[] file = pendingInstant;
+    pendingInstant = null;
+    String problem = PlayerBackup.instantProblem(file);
+    ImportManager imports = ((Re4Application) getApplication()).imports;
+    if (problem == null && imports.root == null) problem = "no data folder";
+    if (problem != null) {
+      Log.i(TAG, "import: instant save: " + problem);
+      report.append(getString(R.string.ingame_backup_instant_bad, problem)).append('\n');
+      importNext(report);
+      return;
+    }
+    File slot = PlayerBackup.instantFile(imports.root);
+    byte[] now = null;
+    try {
+      now = PlayerBackup.read(slot, PlayerBackup.INSTANT_BYTES + 1);
+    } catch (IOException e) {
+      Log.i(TAG, "import: the instant save there cannot be read: " + e);
+    }
+    if (now != null && java.util.Arrays.equals(now, file)) {
+      Log.i(TAG, "import: instant save: the same as the one there");
+      report.append(getString(R.string.ingame_backup_instant_imported)).append('\n');
+      importNext(report);
+      return;
+    }
+    if (now != null && PlayerBackup.instantProblem(now) == null) {
+      Immersive.show(new AlertDialog.Builder(this)
+          .setMessage(R.string.ingame_backup_instant_exists)
+          .setPositiveButton(R.string.ingame_replace, (d, w) -> {
+            writeInstant(slot, file, report);
+            importNext(report);
+          })
+          .setNegativeButton(R.string.ingame_skip, (d, w) -> {
+            Log.i(TAG, "import: instant save skipped (the player's kept)");
+            report.append(getString(R.string.ingame_backup_instant_skipped)).append('\n');
+            importNext(report);
+          })
+          .setCancelable(false).create());
+      return;
+    }
+    writeInstant(slot, file, report);
+    importNext(report);
+  }
+
+  private void writeInstant(File slot, byte[] file, StringBuilder report) {
+    try {
+      PlayerBackup.writeAtomically(slot, file);
+      Log.i(TAG, "import: instant save written (" + file.length + " bytes)");
+      report.append(getString(R.string.ingame_backup_instant_imported)).append('\n');
+    } catch (IOException e) {
+      Log.w(TAG, "import: instant save: " + e);
+      report.append(getString(R.string.ingame_backup_instant_bad, e.getMessage())).append('\n');
+    }
+  }
+
+  /** The settings of the app's ZIP (PlayerBackup.plan): replace this app's only when asked; the graphics only from the
+   *  same kind of device; from a newer version only what this one has. */
+  private void importSettings(StringBuilder report) {
+    byte[] file = pendingSettings;
+    byte[] manifest = pendingManifest;
+    pendingSettings = pendingManifest = null;
+    PlayerBackup.Origin from = PlayerBackup.Origin.of(file);
+    if (from == null) from = PlayerBackup.Origin.of(manifest);
+    long code = appVersionCode();
+    boolean newer = from != null && from.code > code;
+    boolean sameDevice = from != null && deviceName().equals(from.device);
+    java.util.Map<String, java.util.Map<String, ?>> current = new java.util.LinkedHashMap<>();
+    for (String group : PlayerBackup.GROUPS) current.put(group, getSharedPreferences(group, MODE_PRIVATE).getAll());
+    final List<PlayerBackup.Plan> plans;
+    StringBuilder log = new StringBuilder();
+    try {
+      plans = PlayerBackup.plan(file, current, newer, sameDevice, log);
+    } catch (IllegalArgumentException e) {
+      Log.i(TAG, "import: settings: " + e.getMessage());
+      report.append(getString(R.string.ingame_backup_settings_bad, e.getMessage())).append('\n');
+      importNext(report);
+      return;
+    }
+    int changes = 0, skipped = 0;
+    for (PlayerBackup.Plan p : plans) {
+      changes += p.put.size() + p.remove.size();
+      skipped += p.skipped;
+      log.append(' ').append(p.group).append(": ").append(p.put.size()).append(" set, ").append(p.remove.size())
+          .append(" back to the default, ").append(p.skipped).append(" left out")
+          .append(p.keptPerformance > 0 ? ", " + p.keptPerformance + " performance settings of this device kept" : "")
+          .append(';');
+    }
+    Log.i(TAG, "import: settings of " + (from != null ? from.app + " (" + from.code + ") on " + from.device : "?")
+        + ":" + log);
+    final String notes = settingsNotes(from, newer, sameDevice, plans, skipped);
+    if (changes == 0) {
+      report.append(getString(R.string.ingame_backup_settings_same)).append('\n').append(notes);
+      importNext(report);
+      return;
+    }
+    Immersive.show(new AlertDialog.Builder(this)
+        .setMessage(R.string.ingame_backup_settings_exists)
+        .setPositiveButton(R.string.ingame_replace, (d, w) -> {
+          for (PlayerBackup.Plan p : plans) PlayerBackup.apply(getSharedPreferences(p.group, MODE_PRIVATE), p);
+          importedSettings = true;
+          Log.i(TAG, "import: settings replaced");
+          report.append(getString(R.string.ingame_backup_settings_imported)).append('\n').append(notes);
+          importNext(report);
+        })
+        .setNegativeButton(R.string.ingame_skip, (d, w) -> {
+          Log.i(TAG, "import: settings skipped (the player's kept)");
+          report.append(getString(R.string.ingame_backup_settings_skipped)).append('\n');
+          importNext(report);
+        })
+        .setCancelable(false).create());
+  }
+
+  /** The lines under "Settings imported": the performance settings kept (another device), a newer version's left
+   *  out. */
+  private String settingsNotes(PlayerBackup.Origin from, boolean newer, boolean sameDevice,
+                               List<PlayerBackup.Plan> plans, int skipped) {
+    StringBuilder t = new StringBuilder();
+    int kept = 0;
+    for (PlayerBackup.Plan p : plans) kept += p.keptPerformance;
+    if (!sameDevice && kept > 0) {
+      t.append(getString(R.string.ingame_backup_graphics_kept, from != null && !from.device.isEmpty() ? from.device : "?"))
+          .append('\n');
+    }
+    if (newer && skipped > 0) {
+      t.append(getString(R.string.ingame_backup_newer, from.app)).append('\n');
+    }
+    return t.toString();
+  }
+
+  /** Every file of the card as .gci, the touch layout, the instant save and the settings in one ZIP (PlayerBackup). */
+  private void exportZipInto(Uri uri) throws IOException {
+    String[] rows = CoreBridge.cardList();
+    if (rows == null) {
+      // the card became busy meanwhile: no half backup
+      try { DocumentsContract.deleteDocument(getContentResolver(), uri); } catch (Exception ignored) {}
+      message(getString(R.string.ingame_card_unreadable));
+      return;
+    }
+    PlayerBackup.Contents c = new PlayerBackup.Contents();
+    StringBuilder problems = new StringBuilder();
+    for (String row : rows) {
+      int index = Integer.parseInt(row.split("\t", 2)[0]);
+      String name = CoreBridge.cardFileName(index);
+      byte[] gci = CoreBridge.cardExport(index);
+      if (gci == null || name == null) {
+        problems.append('\n').append(CoreBridge.cardNote());
+        continue;
+      }
+      c.card(name, gci);
+    }
+    int[] screen = touchScreen();
+    c.touch = TouchLayoutFile.export(touchPrefs(), TouchControls.defaultLayout(), touchWindowDefaults(),
+        screen[0], screen[1], touchSafe(), appVersion());
+    ImportManager imports = ((Re4Application) getApplication()).imports;
+    if (imports.root != null) {
+      byte[] instant = PlayerBackup.read(PlayerBackup.instantFile(imports.root), PlayerBackup.INSTANT_BYTES + 1);
+      String problem = instant == null ? null : PlayerBackup.instantProblem(instant);
+      if (problem == null) c.instant = instant;
+      else Log.i(TAG, "export: the instant save left out (" + problem + ")");
+    }
+    java.util.Map<String, java.util.Map<String, ?>> groups = new java.util.LinkedHashMap<>();
+    for (String group : PlayerBackup.GROUPS) groups.put(group, getSharedPreferences(group, MODE_PRIVATE).getAll());
+    String device = deviceName();
+    c.settings = PlayerBackup.settings(groups, appVersion(), appVersionCode(), device);
+    try (OutputStream out = getContentResolver().openOutputStream(uri)) {
+      if (out == null) throw new IOException("no stream");
+      PlayerBackup.write(out, c, appVersion(), appVersionCode(), device, System.currentTimeMillis());
+    } catch (IOException | RuntimeException e) {
+      // no half ZIP left behind (the storage full, the provider gone)
+      try { DocumentsContract.deleteDocument(getContentResolver(), uri); } catch (Exception ignored) {}
+      throw e;
+    }
+    String file = displayName(uri);
+    Log.i(TAG, "export: ZIP " + file + ": " + c.cardFiles.size() + " card files, touch layout " + (c.touch != null)
+        + ", instant save " + (c.instant != null) + ", settings " + c.settings.length() + " characters");
+    StringBuilder text = new StringBuilder(String.format(java.util.Locale.ROOT,
+        getResources().getQuantityString(R.plurals.ingame_backup_saved, c.cardFiles.size()), c.cardFiles.size(), file));
+    if (c.instant != null) text.append('\n').append(getString(R.string.ingame_backup_with_instant));
+    if (c.touch != null) text.append('\n').append(getString(R.string.ingame_backup_with_touch));
+    text.append('\n').append(getString(R.string.ingame_backup_with_settings));
+    message(text.toString() + problems);
+  }
+
+  /** The name the chosen file has (the picker may have changed the suggested one). */
+  private String displayName(Uri uri) {
+    try (android.database.Cursor c = getContentResolver().query(uri,
+        new String[] {android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+      if (c != null && c.moveToFirst() && c.getString(0) != null) return c.getString(0);
+    } catch (RuntimeException e) {
+      Log.i(TAG, "export: the file's name: " + e);
+    }
+    String last = uri.getLastPathSegment();
+    return last != null ? last.substring(last.lastIndexOf('/') + 1) : "?";
+  }
+
+  /** The device as the ZIP names it ("Retroid Pocket Flip 2"; the graphics settings come back only on the same). */
+  static String deviceName() {
+    String maker = Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.trim();
+    String model = Build.MODEL == null ? "" : Build.MODEL.trim();
+    return model.toLowerCase(java.util.Locale.ROOT).startsWith(maker.toLowerCase(java.util.Locale.ROOT))
+        ? model : (maker + " " + model).trim();
+  }
+
+  /** The app's versionCode (117 for 0.99.15-rc). */
+  private long appVersionCode() {
+    try {
+      android.content.pm.PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+      return Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
+    } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+      return 0;
+    }
+  }
+
   private void applyTouch(TouchLayoutFile.Parsed parsed, StringBuilder report) {
     int[] screen = touchScreen();
     try {
-      int moved = TouchLayoutFile.apply(touchPrefs(), parsed, screen[0], screen[1], getResources().getDisplayMetrics().density);
+      int moved = TouchLayoutFile.apply(touchPrefs(), parsed, screen[0], screen[1], touchSafe(),
+          getResources().getDisplayMetrics().density);
       if (touchControls != null) touchControls.reloadSaved();
       Log.i(TAG, "import: touch layout saved, " + moved + " controls moved onto the screen " + screen[0] + "x" + screen[1]);
       report.append(getString(R.string.ingame_touch_imported)).append('\n');
@@ -1535,11 +1912,12 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     String discs = discCheckText();
     String renderer = rendererText();
     String shaders = ShaderCache.describe(this);
+    String heat = thermal != null ? thermal.report(SystemClock.elapsedRealtime()) : "not watched\n";
     if (map == null || map.isEmpty())
       return new String[][] {{"memory-card.txt", card.toString()}, {"controllers.txt", controllers}, {"disc-check.txt", discs},
-          {"renderer.txt", renderer}, {"shader-cache.txt", shaders}};
+          {"renderer.txt", renderer}, {"shader-cache.txt", shaders}, {"thermal.txt", heat}};
     return new String[][] {{"memory-card.txt", card.toString()}, {"address-map.txt", map}, {"controllers.txt", controllers},
-        {"disc-check.txt", discs}, {"renderer.txt", renderer}, {"shader-cache.txt", shaders}};
+        {"disc-check.txt", discs}, {"renderer.txt", renderer}, {"shader-cache.txt", shaders}, {"thermal.txt", heat}};
   }
 
   /** The report's disc-check.txt: each imported disc against the original's files, and a file the game could not read. */
@@ -1603,6 +1981,19 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     return (e.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
         || (e.getSource() & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
         || (e.getSource() & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
+  }
+
+  /**
+   * The touch controls' B pressed while the benchmark runs: it ends it as a controller's B does (0.99.17, users could
+   * not end it by touch: the touch B went to the game as its button only, never to the benchmark's keys).
+   */
+  private void benchTouch() {
+    final boolean b = input.touchHeld(CoreInput.GC_B);
+    if (b && !touchBenchB && benchFlow != null && benchFlow.running()) {
+      Log.i(TAG, "benchmark: cancelled by the touch controls' B");
+      benchFlow.cancel();
+    }
+    touchBenchB = b;
   }
 
   private void send() {
@@ -1712,7 +2103,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     StringBuilder out = new StringBuilder(), other = new StringBuilder();
     for (int id : InputDevice.getDeviceIds()) {
       InputDevice d = InputDevice.getDevice(id);
-      if (gameDevice(d)) out.append(describeDevice(d)).append('\n');
+      if (gameDevice(d)) out.append(describeDevice(d)).append(layoutLine(d)).append('\n');
       else if (keyboardDevice(d) || mouseDevice(d)) {
         other.append(describeDevice(d)).append(keyboardDevice(d) ? " (keyboard)" : "").append(mouseDevice(d) ? " (mouse)" : "")
             .append('\n');
@@ -1728,10 +2119,15 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     int code = e.getKeyCode();
     boolean down = e.getAction() == KeyEvent.ACTION_DOWN;
     boolean first = down && e.getRepeatCount() == 0;
-    // the benchmark: the keys belong to it; B, Back or Esc cancel it
+    // the benchmark: the keys belong to it; the game's B (through the controller's or the keyboard's mapping), Back or
+    // Esc cancel it (BenchmarkFlow.cancels; the touch controls' B: benchTouch)
     if (benchFlow != null && benchFlow.running()) {
-      if (first && (code == KeyEvent.KEYCODE_BUTTON_B || code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE)) {
-        benchFlow.cancel();
+      if (first) {
+        final boolean keys = !controller(e) && !KeyEvent.isGamepadButton(code) && keyboardDevice(e.getDevice());
+        if (BenchmarkFlow.cancels(code, keys ? input.keyboardButton(code) : input.gcButton(code))) {
+          Log.i(TAG, "benchmark: cancelled by " + KeyEvent.keyCodeToString(code) + (keys ? " (keyboard)" : ""));
+          benchFlow.cancel();
+        }
       }
       return true;
     }
@@ -1840,10 +2236,51 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   private static float axis(MotionEvent e, InputDevice d, int a, boolean trigger) {
     InputDevice.MotionRange range = d == null ? null : d.getMotionRange(a, e.getSource());
     if (range == null || range.getRange() <= 0) return 0;
-    float v = e.getAxisValue(a);
-    if (Float.isNaN(v) || Float.isInfinite(v)) return 0;
-    return trigger ? (v - range.getMin()) / range.getRange()
-        : 2 * (v - range.getMin()) / range.getRange() - 1;
+    return ControllerAxes.normalise(e.getAxisValue(a), range.getMin(), range.getMax(), trigger);
+  }
+
+  /** A device's axes for the source `source` and, while `e` is set, their values in it (ControllerAxes). */
+  static final class EventAxes implements ControllerAxes.Axes {
+    private MotionEvent e;
+    private InputDevice d;
+    private int source;
+
+    EventAxes set(MotionEvent e, InputDevice d, int source) {
+      this.e = e;
+      this.d = d;
+      this.source = source;
+      return this;
+    }
+
+    private InputDevice.MotionRange range(int a) { return d == null ? null : d.getMotionRange(a, source); }
+    @Override public boolean has(int a) { InputDevice.MotionRange r = range(a); return r != null && r.getRange() > 0; }
+    @Override public float min(int a) { InputDevice.MotionRange r = range(a); return r == null ? 0 : r.getMin(); }
+    @Override public float max(int a) { InputDevice.MotionRange r = range(a); return r == null ? 0 : r.getMax(); }
+    @Override public float flat(int a) { InputDevice.MotionRange r = range(a); return r == null ? 0 : r.getFlat(); }
+    @Override public float value(int a) { return e == null ? 0 : e.getAxisValue(a); }
+  }
+
+  private final EventAxes eventAxes = new EventAxes();
+  /** Each controller's right stick and triggers (ControllerAxes), made at its first stick event. */
+  private final android.util.SparseArray<ControllerAxes> padLayouts = new android.util.SparseArray<>();
+  private final float[] padRight = new float[4];
+
+  /** The controller's layout, named in the log when it is made (0.99.13: which axes are its stick and triggers). */
+  private ControllerAxes padLayout(InputDevice d, EventAxes a) {
+    if (d == null) return ControllerAxes.of(null);
+    ControllerAxes layout = padLayouts.get(d.getId());
+    if (layout == null) {
+      layout = ControllerAxes.of(a);
+      padLayouts.put(d.getId(), layout);
+      Log.i(TAG, "controller " + d.getId() + " \"" + d.getName() + "\": " + layout.describe());
+    }
+    return layout;
+  }
+
+  /** For controllers.txt: the layout a controller gets (or got) for its stick events. */
+  private static String layoutLine(InputDevice d) {
+    if ((d.getSources() & InputDevice.SOURCE_JOYSTICK) != InputDevice.SOURCE_JOYSTICK) return "";
+    return " layout: " + ControllerAxes.of(new EventAxes().set(null, d, InputDevice.SOURCE_JOYSTICK)).describe();
   }
 
   @Override
@@ -1858,14 +2295,13 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       InputDevice d = e.getDevice();
       noteDevice(d);
       padUsed(d);
-      // the right stick: Z/RZ on most Android controllers, RX/RY on others
-      boolean zr = d != null && d.getMotionRange(MotionEvent.AXIS_Z, e.getSource()) != null
-          && d.getMotionRange(MotionEvent.AXIS_RZ, e.getSource()) != null;
+      // the right stick and the triggers: Z/RZ and LTRIGGER/RTRIGGER on the controllers Android knows, RX/RY and
+      // Z/RZ on those it leaves in the driver's order (a wired Xbox pad without its key layout file; ControllerAxes)
+      eventAxes.set(e, d, e.getSource());
+      padLayout(d, eventAxes).read(eventAxes, padRight);
+      eventAxes.set(null, null, 0);
       float lx = axis(e, d, MotionEvent.AXIS_X, false), ly = axis(e, d, MotionEvent.AXIS_Y, false);
-      float rx = axis(e, d, zr ? MotionEvent.AXIS_Z : MotionEvent.AXIS_RX, false);
-      float ry = axis(e, d, zr ? MotionEvent.AXIS_RZ : MotionEvent.AXIS_RY, false);
-      float l = Math.max(axis(e, d, MotionEvent.AXIS_LTRIGGER, true), axis(e, d, MotionEvent.AXIS_BRAKE, true));
-      float r = Math.max(axis(e, d, MotionEvent.AXIS_RTRIGGER, true), axis(e, d, MotionEvent.AXIS_GAS, true));
+      float rx = padRight[0], ry = padRight[1], l = padRight[2], r = padRight[3];
       float hx = axis(e, d, MotionEvent.AXIS_HAT_X, false), hy = axis(e, d, MotionEvent.AXIS_HAT_Y, false);
       noteUnreadAxes(e, d);
       inputDelay.stick(e.getEventTime(), e.getHistorySize() > 0 ? e.getHistoricalEventTime(0) : e.getEventTime(),
@@ -1926,10 +2362,17 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
         tapX = e.getX();
         tapY = e.getY();
         tapTime = e.getEventTime();
+        // a quick-time prompt's press as the finger touches down (0.99.15: until then at its lift, the tap's length
+        // late; the owner, Professional: "with touch not to be done")
+        if (!control && surface != null) CoreBridge.touchDown();
         break;
       }
       case MotionEvent.ACTION_POINTER_DOWN:
         tapFinger = -1;  // a second finger: no tap, no swipe
+        // ... but a press for a quick-time prompt (two thumbs in turn mash twice as fast)
+        if (surface != null && (touchControls == null || !touchControls.onControl(e.getX(i), e.getY(i)))) {
+          CoreBridge.touchDown();
+        }
         break;
       case MotionEvent.ACTION_MOVE: {
         int k = tapFinger >= 0 ? e.findPointerIndex(tapFinger) : -1;
@@ -1969,6 +2412,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     if (id == lastPad) chooseRumble("controller changed");
     input.remove(id);
     seenDevices.remove(id);
+    padLayouts.remove(id);
     controllerLog.forget(id);
     noteConnected(id);
     send();
@@ -1980,6 +2424,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       lastPad = -1;
       chooseRumble("controller removed");
     }
+    padLayouts.remove(id);
     controllerLog.forget(id);
     input.remove(id);
     send();
@@ -1996,10 +2441,11 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
    *  either starts with Custom as the active profile (the settings as they are). */
   private void perfFirstRun(SharedPreferences g) {
     if (g.contains(PerfProfile.FIRST)) {
-      // 0.99.12: a benchmark of before (no processor share) is made again once, as on the first start
+      // 0.99.12: a benchmark of before (no processor share) is made again once, as on the first start; 0.99.14 the same
+      // for one without the GPU's reserve
       if (PerfProfile.scheduleRedo(g)) {
-        Log.i(TAG, "performance profiles: a benchmark of before 0.99.12 (no processor share): measured again once the "
-            + "title's menu waits");
+        Log.i(TAG, "performance profiles: a benchmark of before 0.99.14 (no reserve for the GPU): measured again once "
+            + "the title's menu waits");
       }
       return;
     }
@@ -2053,6 +2499,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     CoreBridge.setFxaa(g.getBoolean("fxaa", false));
     CoreBridge.setSharpen(CoreMenu.sharpenLevel(g));
     CoreBridge.setCrt(CoreMenu.crtLevel(g));
+    CoreBridge.setBloom(CoreBridge.bloomSent(g));
     CoreBridge.setColour(CoreMenu.colourMode(g), CoreMenu.colourLevel(g));
     CoreBridge.setTvFilter(g.getBoolean("tvFilter", false));
     CoreBridge.setPsx(g.getBoolean("psx", false));
@@ -2094,7 +2541,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       CoreBridge.setFastCores(v[PerfProfile.CORES] == 1);
       CoreBridge.setPotato((v[PerfProfile.WEATHER] != 0 ? 0 : 1) | (v[PerfProfile.SPECIAL] != 0 ? 0 : 2)
           | (v[PerfProfile.PARTICLES] << 2) | (v[PerfProfile.SHADOWS] != 0 ? 0 : 16));
-      CoreBridge.setViewDistance(CoreBridge.VIEW_PERCENT[Math.max(0, Math.min(2, v[PerfProfile.VIEW]))]);
+      CoreBridge.setViewDistance(CoreBridge.VIEW_PERCENT[CoreBridge.viewLevel(v[PerfProfile.VIEW])]);
     }
     @Override public void progress(String text) {
       benchView.setText(text != null ? text : "");
@@ -2547,6 +2994,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     int every = pacing.every();
     renderMode = every > 1 ? GLSurfaceView.RENDERMODE_WHEN_DIRTY : GLSurfaceView.RENDERMODE_CONTINUOUSLY;
     picture.setRenderMode(renderMode);
+    // 0.99.13: the pictures keep this grid on the screen too (each asks for its own vsync)
+    CoreBridge.setPictureEvery(every);
     Log.i(TAG, String.format(Locale.ROOT, "display at %.1f Hz: the picture drawn %s", pacing.hz(),
         every > 1 ? "at every " + every + " vsyncs (the screen stayed faster than 60 Hz)" : "at each vsync"));
   }
@@ -2899,6 +3348,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   @Override
   protected void onDestroy() {
     destroyed = true;
+    if (thermal != null) thermal.stop();
     if (isFinishing()) CoreLog.stop();
     main.removeCallbacksAndMessages(null);
     if (beatThread != null) beatThread.quitSafely();
