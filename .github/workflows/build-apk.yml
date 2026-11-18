@@ -2,17 +2,32 @@ name: Build APK
 
 on:
   workflow_dispatch:
+    inputs:
+      opt:
+        description: "ระดับ optimisation ของ core (2 = เหมือนเดิม/เร็วตอนเล่น, 1 = คอมไพล์เร็วขึ้น)"
+        default: "2"
+        type: choice
+        options: ["2", "1"]
+
+env:
+  NDK_VERSION: 28.2.13676358
+  # ccache ครอบทั้งตัว core (port/whole) และ native ของแอป (src/main/cpp)
+  CMAKE_C_COMPILER_LAUNCHER: ccache
+  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+  CCACHE_COMPILERCHECK: content        # NDK แตกใหม่ทุกรอบ mtime เปลี่ยน -> เช็คจากเนื้อไฟล์แทน
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_NOHASHDIR: "true"
+  CCACHE_SLOPPINESS: include_file_mtime,include_file_ctime,time_macros
 
 jobs:
   build:
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # ประวัติ commit ทั้งหมด เพื่อกู้ไฟล์ที่ถูกวางทับ
+          fetch-depth: 0   # restore_originals.py ต้องใช้ประวัติ commit
 
-      # แตก modern-controls-v2.zip (ไฟล์ใหม่เท่านั้น ไม่เขียนทับไฟล์เดิม) แล้วรันสคริปต์แก้ไฟล์เดิมเฉพาะจุด
       - name: Apply modern-controls changes
         run: |
           unzip -o modern-controls-v2.zip
@@ -29,28 +44,35 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # เก็บแคช Gradle ไว้ใช้รอบต่อไป (ไม่ต้องโหลดไลบรารีใหม่ทุกครั้ง)
-      - uses: actions/cache@v4
+      # ccache: ครั้งแรกช้าเท่าเดิม ครั้งต่อไปคอมไพล์ใหม่เฉพาะไฟล์ที่เปลี่ยน
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('port/android-decomp/**/*.gradle', 'port/android-decomp/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: gradle-${{ runner.os }}-
+          key: ccache-arm64-opt${{ inputs.opt || '2' }}
+          max-size: 1500M
 
-      - name: Install build tools and NDK r28c
-        run: sudo port/tools/whole_setup_linux.sh --android
+      # แคช Gradle (ดีกว่า actions/cache เดิม: เก็บ wrapper + dependency + build cache)
+      - uses: gradle/actions/setup-gradle@v4
+
+      # ไม่ต้องรัน whole_setup_linux.sh แล้ว (มันลง i386/ARM32 cross/qemu/mesa/ffmpeg... ที่ build Android ไม่ใช้)
+      # ใช้ NDK ที่มากับ runner ถ้ามี ไม่งั้นโหลดผ่าน sdkmanager
+      - name: Locate NDK r28c
+        run: |
+          NDK="$ANDROID_HOME/ndk/$NDK_VERSION"
+          if [ ! -f "$NDK/source.properties" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$NDK_VERSION" >/dev/null
+          fi
+          echo "NDK=$NDK" >> "$GITHUB_ENV"
+          python3 --version; cmake --version | head -1; ninja --version
 
       - name: Build game core (.so)
-        run: port/tools/whole_build_android.sh --ndk /opt/android-ndk-r28c --abi arm64-v8a
+        run: port/tools/whole_build_android.sh --ndk "$NDK" --abi arm64-v8a --opt "${{ inputs.opt || '2' }}"
 
-      # ใช้ keystore ตัวเดิมทุกครั้ง (ไฟล์ debug.keystore ที่ root ของ repo) ลายเซ็นจะได้ไม่เปลี่ยน อัปเดตทับได้เลย
       - name: Use fixed signing key
         run: |
           mkdir -p ~/.android
           cp debug.keystore ~/.android/debug.keystore
 
-      # บังคับให้ Gradle เซ็นด้วย debug.keystore ของ repo เสมอ (ไม่พึ่งการหาไฟล์ใน ~/.android)
       - name: Gradle init script (fixed key)
         run: |
           cat > "$RUNNER_TEMP/fixed-key.gradle" <<EOF
@@ -66,15 +88,24 @@ jobs:
           }
           EOF
 
+      # -Pandroid.injected.build.abi: คอมไพล์/แพ็กเฉพาะ arm64-v8a (core .so มีแค่ arm64 อยู่แล้ว
+      #   เดิม Gradle เสียเวลาคอมไพล์ native ของแอปให้ armeabi-v7a ฟรี ๆ ด้วย)
       - name: Build APK (coreDebug, signed with the debug key)
         working-directory: port/android-decomp
         run: |
           chmod +x gradlew
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          # versionCode เพิ่มทุกรอบ (ต้องไม่ต่ำกว่าตัวที่ติดตั้งอยู่) เครื่องบางรุ่นไม่ยอมติดตั้งทับเวอร์ชันเลขเท่าเดิม
-          ./gradlew assembleCoreDebug -I "$RUNNER_TEMP/fixed-key.gradle" -Pre4.versionCode=$((200 + GITHUB_RUN_NUMBER))
+          ./gradlew assembleCoreDebug \
+            -I "$RUNNER_TEMP/fixed-key.gradle" \
+            -Pre4.versionCode=$((200 + GITHUB_RUN_NUMBER)) \
+            -Pandroid.injected.build.abi=arm64-v8a \
+            -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" \
+            --parallel --build-cache
 
-      # แค่แสดงลายเซ็นไว้ดู ถ้าล้มก็ไม่เป็นไร (ไม่ให้ขวางการอัปโหลด APK)
+      - name: ccache stats
+        if: always()
+        run: ccache -s || true
+
       - name: Show APK signature
         continue-on-error: true
         run: |
@@ -85,3 +116,4 @@ jobs:
         with:
           name: CubeEvil4-apk
           path: port/android-decomp/app/build/outputs/apk/core/debug/*.apk
+          compression-level: 0   # APK บีบอยู่แล้ว ไม่ต้องบีบซ้ำ
