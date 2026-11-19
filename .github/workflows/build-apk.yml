@@ -106,14 +106,21 @@ jobs:
         if: always()
         run: ccache -s || true
 
+      - name: List built APKs
+        run: |
+          find port/android-decomp/app/build/outputs -name '*.apk' -print
+          find port/android-decomp/app/build/outputs -name '*.apk' | grep -q . || { echo "::error::ไม่พบไฟล์ APK"; exit 1; }
+
       - name: Show APK signature
         continue-on-error: true
         run: |
           APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | tail -1)
-          "$APKSIGNER" verify --print-certs port/android-decomp/app/build/outputs/apk/core/debug/*.apk | grep -E "certificate (DN|SHA-256)" || true
+          APK=$(find port/android-decomp/app/build/outputs/apk -name '*.apk' | head -1)
+          "$APKSIGNER" verify --print-certs "$APK" | grep -E "certificate (DN|SHA-256)" || true
 
       - uses: actions/upload-artifact@v4
         with:
           name: CubeEvil4-apk
-          path: port/android-decomp/app/build/outputs/apk/core/debug/*.apk
+          path: port/android-decomp/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
           compression-level: 0   # APK บีบอยู่แล้ว ไม่ต้องบีบซ้ำ
