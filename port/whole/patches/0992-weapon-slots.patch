@@ -4,6 +4,7 @@
 # the knife (joyLKamae, the game's own knife stance), the fire key slashes. A gun slot swaps the gun like the inventory does when
 # it closes (SubScreenExit). player.cpp re4SlotPre / re4SlotPost, pl_sub.cpp joyKamae / joyLKamae. The L key is no longer the
 # knife stance for Leon. Slots start with the knife on the left and are not saved. Applies after 0990 and 0991.
+# Update: the knife model is shown in his hand and the gun hidden while the knife is picked (re4KnifeShow); L + the direction of a slot holding his weapon makes it the knife.
 --- a/src/game/player.cpp
 +++ b/src/game/player.cpp
 @@ -13,6 +13,7 @@
@@ -14,16 +15,16 @@
  #include "motion.h"
  #include "math_sub.h"
  #include "cMotBase.h"
-@@ -290,6 +291,133 @@
+@@ -290,6 +291,171 @@
      matUpdate();
  }
  
 +// Port (patch 0992), weapon slots on the digital pad (wish of a user, 19.11.2026): while Leon moves freely (routine 0)
 +// the four directions of the pad pick a weapon instead of walking: up, right, down, left = slot 0..3. A slot holds an
 +// item id of the inventory (0 = empty) or the knife. Hold L and press a direction to put the weapon in his hands (or the
-+// knife, when it is the one picked) in that slot. The slot of the knife does not change the gun in his hands: with it
++// knife, when it is the one picked) in that slot; L + the direction of a slot that already holds his weapon makes it the knife. The slot of the knife does not change the gun in his hands: with it
 +// picked, Leon walks as always and the aim key (R) draws the knife (the game's own knife stance, joyLKamae in
-+// pl_sub.cpp) instead of aiming the gun; the fire key slashes. The L key itself is not the knife stance any more (it
++// pl_sub.cpp) instead of aiming the gun; the fire key slashes. The knife is shown in his hand (gun hidden) while it is picked. The L key itself is not the knife stance any more (it
 +// is the key that assigns the slots). A gun slot swaps the gun the way the inventory does when it is closed
 +// (SubScreenExit: weaponRelease / weaponLoad / weaponInit), only from the standing, walking or running routines.
 +// The pad is taken out of the keys of this frame's player routine only (restored at the end of move()), so windows,
@@ -84,7 +85,8 @@
 +                    g_re4_slot_id[idx] = RE4_SLOT_KNIFE;
 +                    SndCall(0, 3, 0, 0, 0, 0);
 +                } else if (ItemMgr.weapon() != 0) {
-+                    g_re4_slot_id[idx] = ItemMgr.weapon()->id;
++                    // pressing it again for the weapon the slot already holds turns the slot into the knife
++                    g_re4_slot_id[idx] = (g_re4_slot_id[idx] == ItemMgr.weapon()->id) ? RE4_SLOT_KNIFE : ItemMgr.weapon()->id;
 +                    SndCall(0, 3, 0, 0, 0, 0);
 +                }
 +            } else if (pl->r_no_1 <= 4 && !(Key.on & 0x10)) {
@@ -134,8 +136,45 @@
 +    }
 +}
 +
-+static void re4SlotPost(void)
++// The knife picked on the pad is in his hand all the time: the knife model on, the gun hidden (what the game does
++// for the knife stance), so he walks and runs with it. Done at the end of the frame, after the routines that reset it;
++// when the knife is put away again the gun is shown and the knife hidden.
++static int g_re4_knife_shown = 0;
++
++static void re4KnifeShow(cPlayer* pl, int on)
 +{
++    if (pl->Wep != 0 && pl->Wep->m_pWep != 0) {
++        switch (pG->weapon_no) {
++        case 0x13:
++        case 0x16:
++        case 0x17:
++        case 0x19:
++        case 0x1F:
++        case 0x20:
++            if (pl->Wep->m_pWepHand == 0) {
++                break;
++            }
++        default:
++            setWepTrans(pl, on ? 0 : 1);
++            break;
++        case 0xD:
++            break;
++        }
++    }
++    if (pl->Body != 0) {
++        pl->Body->setKnife(on != 0);
++    }
++}
++
++static void re4SlotPost(cPlayer* pl)
++{
++    if (pG->pl_type == 0 && g_re4_knife_slot) {
++        re4KnifeShow(pl, 1);
++        g_re4_knife_shown = 1;
++    } else if (g_re4_knife_shown) {
++        g_re4_knife_shown = 0;
++        re4KnifeShow(pl, 0);
++    }
 +    if (g_re4_slot_masked) {
 +        Key.on = g_re4_slot_save_on;
 +        Key.trg = g_re4_slot_save_trg;
@@ -148,7 +187,7 @@
  // Per-frame update.
  void cPlayer::move()
  {
-@@ -298,6 +426,7 @@
+@@ -298,6 +464,7 @@
      int moved;
      int i;
  
@@ -156,11 +195,11 @@
      StaFlagOff(pG, STA_SUBCHAR_CTRL);
      StaFlagOff(pG, STA_PL_FIRE);
      StaFlagOff(pG, STA_PL_SE_WHISTLE);
-@@ -390,6 +519,7 @@
+@@ -390,6 +557,7 @@
      }
      be_flag &= ~0x20000000;
      debugMove();
-+    re4SlotPost();  /* port (patch 0992) */
++    re4SlotPost(this);  /* port (patch 0992) */
  }
  
  // Port (patch 0228), the app menu's "Modern controls" (wish of a user, 12.11.2026): the left stick moves Leon
