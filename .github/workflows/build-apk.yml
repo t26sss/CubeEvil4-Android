@@ -88,8 +88,14 @@ jobs:
           }
           EOF
 
-      # -Pandroid.injected.build.abi: คอมไพล์/แพ็กเฉพาะ arm64-v8a (core .so มีแค่ arm64 อยู่แล้ว
-      #   เดิม Gradle เสียเวลาคอมไพล์ native ของแอปให้ armeabi-v7a ฟรี ๆ ด้วย)
+      # core .so มีแค่ arm64 อยู่แล้ว: ตัด armeabi-v7a ออกจาก flavor core (เฉพาะในเครื่อง CI ไม่แก้ repo)
+      - name: Limit core flavor to arm64-v8a
+        working-directory: port/android-decomp
+        run: |
+          sed -i "/^        core {/,/^        }/ s/abiFilters 'armeabi-v7a', 'arm64-v8a'/abiFilters 'arm64-v8a'/" app/build.gradle
+          sed -n "/^        core {/,/^        }/p" app/build.gradle | grep abiFilters
+          sed -n "/^        core {/,/^        }/p" app/build.gradle | grep -q "armeabi" && { echo "::warning::ยังมี armeabi-v7a ใน core"; } || true
+
       - name: Build APK (coreDebug, signed with the debug key)
         working-directory: port/android-decomp
         run: |
@@ -98,7 +104,6 @@ jobs:
           ./gradlew assembleCoreDebug \
             -I "$RUNNER_TEMP/fixed-key.gradle" \
             -Pre4.versionCode=$((200 + GITHUB_RUN_NUMBER)) \
-            -Pandroid.injected.build.abi=arm64-v8a \
             -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" \
             --parallel --build-cache
 
@@ -108,7 +113,7 @@ jobs:
 
       - name: List built APKs
         run: |
-          find port/android-decomp/app/build/outputs -name '*.apk' -print
+          find port/android-decomp/app/build -name '*.apk' -print
           find port/android-decomp/app/build/outputs -name '*.apk' | grep -q . || { echo "::error::ไม่พบไฟล์ APK"; exit 1; }
 
       - name: Show APK signature
