@@ -1,10 +1,14 @@
 // HD texture packs (see tex_pack.h).
 #include "tex_pack.h"
 
+#include "tex_pack_groups.h"
+#include "tex_pack_words.h"
+
 #include <algorithm>
 #include <cerrno>
 #include <chrono>
 #include <cstring>
+#include <iterator>
 
 #include <fcntl.h>
 #include <pthread.h>
@@ -154,6 +158,67 @@ TexKey DolphinKey(unsigned format, unsigned width, unsigned height, bool mip, co
   return k;
 }
 
+// The menus' words keep the game's own picture (owner's decisions 16.11.2026: first the title menu, then "all menu
+// words keep the original font"). The HD Project redrew only some menu words, some in another font, and only the US
+// ones; with EU discs the words the languages share (ASSIGNMENT ADA, RUMBLE, Blast range ...) got replaced and the
+// translated ones did not. So menus showed two or three fonts at once. kMenuWords (tex_pack_words.h) lists every
+// picture made of letters in the menus, the HUD and the result screens of the debug, US, EU and JP discs, found by
+// reading all their UI files (port/docs/textur-lader-plan.md). Icons, item and map pictures, digits, logos and the
+// letter font are still replaced. A word is its texels' hash (the first part of Dolphin's name), its size and its
+// format, with any palette: other pictures of the same size still get replaced.
+namespace {
+// gx_gl_check's words (AddTestMenuWord); empty in the app
+std::vector<KeptTexture> &TestWords() {
+  static std::vector<KeptTexture> words;
+  return words;
+}
+// gx_gl_check's group textures (AddTestGroupTexture); empty in the app
+std::vector<GroupTexture> &TestGroups() {
+  static std::vector<GroupTexture> groups;
+  return groups;
+}
+}  // namespace
+
+bool KeepsGameTexture(const TexKey &key) {
+  const auto *end = std::end(kMenuWords);
+  auto it = std::lower_bound(std::begin(kMenuWords), end, key.tex,
+                             [](const KeptTexture &k, std::uint64_t tex) { return k.tex < tex; });
+  for (; it != end && it->tex == key.tex; ++it)
+    if (it->width == key.width && it->height == key.height && it->format == key.format) return true;
+  for (const KeptTexture &k : TestWords())
+    if (k.tex == key.tex && k.width == key.width && k.height == key.height && k.format == key.format) return true;
+  return false;
+}
+
+void AddTestMenuWord(std::uint64_t tex, unsigned width, unsigned height, unsigned format) {
+  TestWords().push_back({tex, static_cast<std::uint16_t>(width), static_cast<std::uint16_t>(height),
+                         static_cast<std::uint8_t>(format)});
+}
+
+// the costumes' and weapons' textures (tex_pack_groups.h, sorted like kMenuWords): their groups, any palette
+unsigned TextureGroups(const TexKey &key) {
+  const auto *end = std::end(kGroupTextures);
+  auto it = std::lower_bound(std::begin(kGroupTextures), end, key.tex,
+                             [](const GroupTexture &g, std::uint64_t tex) { return g.tex < tex; });
+  unsigned groups = 0;
+  for (; it != end && it->tex == key.tex; ++it)
+    if (it->width == key.width && it->height == key.height && it->format == key.format) groups |= it->groups;
+  for (const GroupTexture &g : TestGroups())
+    if (g.tex == key.tex && g.width == key.width && g.height == key.height && g.format == key.format) groups |= g.groups;
+  return groups;
+}
+
+void AddTestGroupTexture(std::uint64_t tex, unsigned width, unsigned height, unsigned format, unsigned groups) {
+  TestGroups().push_back({tex, static_cast<std::uint16_t>(width), static_cast<std::uint16_t>(height),
+                          static_cast<std::uint8_t>(format), static_cast<std::uint8_t>(groups)});
+}
+
+bool IsTestMenuWordSize(unsigned format, unsigned width, unsigned height) {
+  for (const KeptTexture &k : TestWords())
+    if (k.width == width && k.height == height && k.format == format) return true;
+  return false;
+}
+
 TexPack::~TexPack() { Close(); }
 
 void TexPack::Close() {
@@ -229,7 +294,7 @@ bool TexPack::Open(const std::string &path, std::string *error) {
 }
 
 const c4tex::Entry *TexPack::Find(const TexKey &key) const {
-  if (entries_.empty()) return nullptr;
+  if (entries_.empty() || KeepsGameTexture(key)) return nullptr;
   auto lo = std::lower_bound(entries_.begin(), entries_.end(), key.tex,
                              [](const c4tex::Entry &e, std::uint64_t h) { return e.texHash < h; });
   const c4tex::Entry *same = nullptr, *other = nullptr;

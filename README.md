@@ -2,7 +2,7 @@
 
 # CubeEvil4
 
-![Beta](https://img.shields.io/badge/Status-Beta-E67E22)
+![Release](https://img.shields.io/badge/Status-Release-2EA44F)
 ![Android 7.0+](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
 ![ARM 32/64-bit](https://img.shields.io/badge/ARM-32%2F64--bit-0091BD?logo=arm&logoColor=white)
 ![API](https://img.shields.io/badge/API-OpenGL%20ES%203.0%2B%20/%20Vulkan-5586A4?logo=api&logoColor=white)
@@ -115,7 +115,7 @@ If you do not own the game, please buy it: the remake (see above) or one of the 
 | Free storage | about 3 GB, to import both discs | – |
 | Input | a game controller (built in, USB or Bluetooth) or the touch screen | a game controller |
 | Gyroscope | – | for gyro aiming (optional) |
-| Game data | your own disc images (ISO, GCM or RVZ) of **both** discs of either the European retail release (`G4BP08`), the US retail release (`G4BE08`) or the Japanese retail release (`G4BJ08`, also the Korean fan translation) | – |
+| Game data | your own disc images (ISO, GCM or RVZ) of **both** discs of either the European retail release (`G4BP08`), the US retail release (`G4BE08`) or the Japanese retail release (`G4BJ08`) | – |
 
 
 ## How to use?
@@ -128,9 +128,8 @@ If you do not own the game, please buy it: the remake (see above) or one of the 
   on their own when no controller is connected, and after a tap on the screen (app menu → Touch
   Controls: Auto, Force or Suppress).
 - Your own disc images (ISO, GCM or RVZ) of **both** discs of the European retail release
-  (`G4BP08`), of the US retail release (`G4BE08`) or of the Japanese retail release (`G4BJ08`, also
-  the Korean fan translation), and enough free storage to import them. Both discs must be of the
-  same release.
+  (`G4BP08`), of the US retail release (`G4BE08`) or of the Japanese retail release (`G4BJ08`), and
+  enough free storage to import them. Both discs must be of the same release.
 
 **First start**
 
@@ -141,6 +140,18 @@ If you do not own the game, please buy it: the remake (see above) or one of the 
 3. Choose **Start game**. If your controller's face buttons are labelled the other way round,
    tick "Swap A/B and X/Y" on the start screen.
 
+**Data folder**
+
+- CubeEvil4 keeps its data (imported discs, memory card, instant save, texture packs, error logs) in
+  its own folder, `Android/data/com.ast.cubeevil4/files`. Uninstalling the app deletes that folder.
+- The **sideload** APK (`CubeEvil4-<version>-Android-sideload.apk`) can keep them in a folder of your
+  choice instead, for example on an SD card: on the start screen, under **Data folder**, choose
+  **Choose folder** (with both discs imported, open the start screen through app menu → Management →
+  Import other discs). Android then asks for **All files access** (Android 11 and later; the storage
+  permission on Android 7 to 10): CubeEvil4 needs it to read and write outside its own folder.
+  CubeEvil4 offers to move the existing data along; **Restore default** goes back to its own folder.
+- The sideload APK and the normal one are the same app: either installs over the other.
+
 **SELECT button**
 
 - **Press SELECT** (with touch controls: **MENU**): the app menu, in your phone's language where
@@ -148,9 +159,9 @@ If you do not own the game, please buy it: the remake (see above) or one of the 
   Italian, Portuguese, Russian and Spanish so far; on Android 13 and later also per app under
   Settings → Apps → CubeEvil4 → Language); with the European discs also the game language
   (a change restarts the game); graphics (resolution Dynamic or 1×–4× in half steps,
-  anti-aliasing, texture filter, picture 4:3 (GC), 4:3, 16:9 or Stretched, depth of field, FPS
+  anti-aliasing, texture filter, sharper menu text, picture 4:3 (GC), 4:3, 16:9 or Stretched, depth of field, real-time shadows, FPS
   display, 60 FPS (experimental), Force Performance: Default or Use performance cores, Potato mode: weather and
-  special effects off), sound (music and sound effects volume), controls (touch controls Auto, Force or Suppress, button style RE or GC; comfort
+  special effects off), sound (music and sound effects volume), controls (touch controls Auto, Force or Suppress, button style RE, GC, PS2 or XBOX; comfort
   controls: Alternate Controls, gyro aiming with its sensitivity and inversion, knife by swipe,
   Latch L and R, Latch B, Auto aim, Always run; Controller Configuration), cheats (infinite health, infinite ammo,
   one-hit kill, a fully upgraded Killer7, the attaché case L, +1,000,000 PTAS), memory card (export
@@ -187,9 +198,10 @@ controller is connected). In the inventory you can tap items, files and the map,
 right to change the tab. When a quick-time prompt flashes up (L+R, A+B, mash A …), a tap on it (or
 anywhere on the picture) presses its buttons; tap again and again to mash. The editor (gear) can
 add an **R3** button (graphics capture for error reports, as on a controller).
-Button style (app menu → Controls → Button style, or the style button in the editor): **RE**
-(the default: a symbol for what each button does, in dark brown and gold) or **GC** (the letters
-in the GameCube's colours, as before); the switch takes effect at once and keeps your layout.
+Button style (app menu → Controls → Button style, or the style button in the editor, which goes
+through all four): **RE** (the default: a symbol for what each button does, in dark brown and
+gold), **GC** (the GameCube's shapes and colours), **PS2** or **XBOX** (the buttons of those
+controllers); the switch takes effect at once and keeps your layout.
 
 **Comfort controls** (app menu → Controls)
 
@@ -208,7 +220,9 @@ The controller (or the device) vibrates where the game uses the rumble, if it ca
 
 CubeEvil4 can replace the game's textures with sharper ones from a texture pack in the Dolphin format
 (`tex1_<width>x<height>_<hash>_<format>.dds/.png/.jpg`), as Dolphin does. **CubeEvil4 includes no textures,
-offers none and links to none.** Use only packs you obtained yourself and may use. The packer reads DDS (BC1, BC2,
+offers none and links to none.** Use only packs you obtained yourself and may use.
+A compatible HD Texture pack is `Resident Evil 4 HD Project GameCube` by SpiderCop @ Dolphin-Emu Forum.
+The packer reads DDS (BC1, BC2,
 BC3, BC4, BC5, BC7 and uncompressed; not BC6H), PNG and JPG (baseline and progressive; not CMYK). When a pack has the
 same texture as several files, it takes the DDS, then the PNG, then the JPG.
 
@@ -231,7 +245,9 @@ same texture as several files, it takes the DDS, then the PNG, then the JPG.
    packer's button. The app keeps it in a folder of its own; it never touches your discs, saves or memory
    cards. Afterwards you can delete the file in Download or the copy you made.
 3. Switch the HD textures on or off at any time, choose "Sharpness: Half" on weaker devices, or delete the
-   pack. Textures the pack does not have, and pictures the game makes itself, stay as they are.
+   pack. Textures the pack does not have, and pictures the game makes itself, stay as they are. With
+   "Costumes · Original" or "Weapons · Original" the playable characters or the weapons keep the game's own
+   textures.
 
 ## Building the app
 
@@ -243,7 +259,8 @@ No disc images or game files ever go into the repository.
    does the same through WSL). The libraries land in
    `port/android-decomp/app/src/core/jniLibs/` (not in git).
 2. Open `port/android-decomp` in Android Studio, choose the build variant **coreRelease** and
-   build a signed APK (Build → Generate Signed App Bundle or APK).
+   build a signed APK (Build → Generate Signed App Bundle or APK). The sideload APK with the data
+   folder of your choice is the build variant **sideloadRelease**, signed the same way.
 3. Install the APK, start **CubeEvil4** and import Disc 1 and Disc 2 (ISO, GCM or RVZ of the
    European, US or Japanese retail release).
 
@@ -356,6 +373,23 @@ purpose. Constants use the PS2 build's enums. `docs/naming.md` has the details.
 See `CONTRIBUTING.md` for the build, the three checks a change has to pass and the rules. The main rule
 is that the output bytes never change.
 
+## License
+
+| What | Whose | License |
+|---|---|---|
+| The Android port CubeEvil4 in `port/`: the app, the renderer, the runtime, the patches, the Texture Packer, the tools and the documents | Andiweli | GPL-3.0-or-later, with an additional permission for the game code: [port/LICENSE](port/LICENSE) |
+| The decompilation's own tools, configuration and documentation (`configure.py`, `tools/`, `config/`, `docs/`) | the decompilation's authors | CC0 1.0: [LICENSE](LICENSE) |
+| The game code (`src/`, `include/`) | Capcom | none of these: Capcom's property |
+| The GameCube SDK and the CRI middleware (`src/lib/`) | Nintendo, CRI Middleware | none of these: their property |
+| Libraries and icons from others in `port/` (RetroTouch, zstd, glslang, Boost.Context, Lucide) | their authors | their own licenses (RetroTouch: MIT), see their notices |
+| Game data | Capcom | not included: you need your own copy of the game |
+
+The license covers only this project's own code. It does not cover Capcom's game, which you must
+own. In short: whoever shares a modified build of CubeEvil4 must share its source code too, under
+the same license; the additional permission lets that build contain the game code. Code
+published before 1.0.0, including earlier branches on GitHub, stays under the terms it was
+published with (CC0 for the project's own work).
+
 ## Legal
 
 - **Unofficial fan project.** CubeEvil4 is a non-commercial fan project. It is not affiliated with,
@@ -377,8 +411,9 @@ is that the output bytes never change.
   and the CubeEvil4 Texture Packer only read packs you converted yourself from material you obtained
   yourself, as in Dolphin. Texture packs are the work of their authors; they are not part of this project.
 - **No warranty.** The app is provided "as is", without any warranty. Use it at your own risk.
-- **Our own work.** The build scripts, tools, Android app shell, configuration and documentation
-  written for this project are released under CC0, see `LICENSE`. This does not extend to any
-  Capcom, Nintendo or CRI material.
+- **Our own work.** The Android port's own code and documents in `port/` are released under the
+  GPL-3.0-or-later with an additional permission for the game code (`port/LICENSE`); the
+  decompilation's own build scripts, tools, configuration and documentation are released under CC0
+  (`LICENSE`). Neither extends to any Capcom, Nintendo or CRI material.
 - **Rights holders.** If you represent Capcom, Nintendo or CRI Middleware and have concerns about this
   project, please open an issue or contact the maintainer; we will respond promptly.

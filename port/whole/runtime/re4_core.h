@@ -358,6 +358,14 @@ void re4_core_touch(float u, float v);
  * aims, as angles in radians (yaw positive left, pitch positive up), added up to the next game frame and
  * turned there as the gyro turns the aim (the scope's zoom too). Any thread. */
 void re4_core_aim_turn(float yaw, float pitch);
+/* Turning Leon (cores since 16.11.2026, 1.0; runtime/gyro.cpp): the app's option "Turn Leon with mouse / look
+ * area", the mouse's or the look zone's movement sideways in radians (positive left), added up to the next game
+ * frame and added to Leon's yaw there while he stands, walks or runs (not while he aims, nor on a ladder, in an
+ * event ...). Any thread. */
+void re4_core_body_turn(float yaw);
+/* The cheat "Leon's jacket" (1.0, runtime/cheats.cpp, patch 0235): 1 Leon keeps the brown jacket of chapter 1 for
+ * the whole story (the cheat page's "Costumes"; the special costume is the cheats' bit 256). Any thread. */
+void re4_core_set_leon_jacket(int on);
 /* The mouse wheel (cores since 12.11.2026, 0.99.12; runtime/wheel_zoom.cpp): `notches` up (positive, zooms in) or
  * down, an eighth of the zoom each, handed to the game as a short push of the C stick while the scope or the
  * binoculars are up; dropped anywhere else. Any thread. */
@@ -369,6 +377,10 @@ void re4_core_set_enemy_random(int seed);
  * events of Professional take the time windows and press counts of Normal; damage, enemies and the rest stay
  * Professional's. Any thread. */
 void re4_core_set_gentle_qte(int on);
+/* The app's real-time shadows (runtime/rt_shadow.cpp, runtime/gx_owner.cpp): what this
+ * core knows of them, 1 the figures, 2 also the objects (bits 5 and 6 of re4_core_set_potato). A core without the
+ * function knows none: the app logs "a core without real-time shadows (rebuild the core)". Any thread. */
+int re4_core_rt_shadows(void);
 /* A swipe across the picture (cores since 22.10.2026): dir 1 the next tab of
  * the sub screen (a swipe to the left), -1 the one before, nothing beyond the
  * first and the last; ignored outside the normal inventory. Any thread. */

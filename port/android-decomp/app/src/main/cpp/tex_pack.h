@@ -34,6 +34,20 @@ struct TexKey {
 TexKey DolphinKey(unsigned format, unsigned width, unsigned height, bool mip, const std::uint8_t *level0,
                   std::size_t level0Bytes, const std::uint8_t *palette, std::size_t paletteBytes);
 
+// a game texture no pack replaces: the menus' words keep the game's own picture (tex_pack_words.h, tex_pack.cpp says
+// why)
+bool KeepsGameTexture(const TexKey &key);
+
+// The HD pack's groups the player can keep original (1.0.0, decision of the project owner, 17.11.2026; the Mods page's
+// "Costumes" and "Weapons"): a game texture's groups (tex_pack_groups.h), 0 for any other texture
+enum TextureGroup : unsigned { kGroupCostumes = 1, kGroupWeapons = 2 };
+unsigned TextureGroups(const TexKey &key);
+// gx_gl_check only: one more texture of a group, as if tex_pack_groups.h listed it
+void AddTestGroupTexture(std::uint64_t tex, unsigned width, unsigned height, unsigned format, unsigned groups);
+// gx_gl_check only: one more word, as if tex_pack_words.h listed it (KeepsGameTexture and MaybeMenuWord see it)
+void AddTestMenuWord(std::uint64_t tex, unsigned width, unsigned height, unsigned format);
+bool IsTestMenuWordSize(unsigned format, unsigned width, unsigned height);
+
 class TexPack {
  public:
   TexPack() = default;
@@ -46,7 +60,8 @@ class TexPack {
   void Close();
   bool IsOpen() const { return fd_ >= 0; }
 
-  // the replacement of a game texture: the entry with the same "_m" first, else the other one; nullptr: none
+  // the replacement of a game texture: the entry with the same "_m" first, else the other one; nullptr: none (also
+  // for a texture KeepsGameTexture keeps)
   const c4tex::Entry *Find(const TexKey &key) const;
   // the entry's texels from `firstLevel` on (Sharpness Half: 1); false when the file cannot be read
   bool Read(const c4tex::Entry &e, unsigned firstLevel, std::vector<std::uint8_t> &out) const;

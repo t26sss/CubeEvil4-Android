@@ -136,6 +136,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   static final String AUTO_AIM = "autoAim", ALWAYS_RUN = "alwaysRun", FAR_CAMERA = "farCamera";
   /** "Gentler QTEs" (0.99.15): Professional's quick-time events as Normal's; on by default. */
   static final String GENTLE_QTE = "gentleQte";
+  /** "Turn Leon with mouse / look area" (1.0): the movement sideways turns Leon himself (CoreInput.setBodyTurn); off. */
+  static final String BODY_TURN = "bodyTurn";
   static final boolean GENTLE_QTE_DEFAULT = true;
   static final float AIM_SPEED_MIN = 0.5f, AIM_SPEED_MAX = 3f, AIM_SPEED_STEP = 0.25f;
   // the menu's "Field of view" (PLAYER VIEW; wish of the project owner, 05.11.2026): degrees added to the shoulder
@@ -153,6 +155,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
    *  extra games kept unlocked, the story's player character << 5 (2 Ada, 3 HUNK, 4 Krauser, 5 Wesker), 256 the
    *  special costume; off). */
   static final String CHEATS = "cheats";
+  /** The cheat "Costumes · Leon's jacket" (1.0, GAME_PREFS; CoreBridge.setLeonJacket): Leon keeps his brown jacket. */
+  static final String LEON_JACKET = "leonJacket";
   /** The cheat "Random enemies" (0.99.12): its seed, 0 off (CoreBridge.setEnemyRandom). */
   static final String ENEMY_SEED = "enemySeed";
   private static final int REQUEST_EXPORT_ALL = 2, REQUEST_IMPORT = 3, REQUEST_REPORT = 4, REQUEST_TEXTURES = 5,
@@ -279,6 +283,13 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   @SuppressLint("ClickableViewAccessibility")
   public void onCreate(Bundle state) {
     super.onCreate(state);
+    // an unofficial build's warning not confirmed in this process (OfficialBuild; Android brought the game back in a
+    // new process, past the start screen): the start screen first, which warns and then starts the game itself
+    if (OfficialBuild.mustWarn(this)) {
+      startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP));
+      finish();
+      return;
+    }
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     // no force dark over the game, its touch controls and displays (FocusLook, 0.99.11)
     FocusLook.noForceDark(getWindow());
@@ -415,6 +426,8 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     aimInvert = inputPrefs.getBoolean(AIM_INVERT_V, false);
     autoAim = inputPrefs.getBoolean(AUTO_AIM, false);
     alwaysRun = inputPrefs.getBoolean(ALWAYS_RUN, false);
+    input.setBodyTurn(inputPrefs.getBoolean(BODY_TURN, false));
+    if (input.bodyTurn()) Log.i(TAG, "turn Leon with mouse / look area: on");
     // "modernMove": a switch of a 0.99.7 test build, taken out again (decision of the project owner, 10.11.2026)
     if (inputPrefs.contains("modernMove")) inputPrefs.edit().remove("modernMove").apply();
     aimSpeed = clampAimSpeed(inputPrefs.getFloat(AIM_SPEED, 1f));
@@ -463,6 +476,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       CoreBridge.setVkBandwidth(g.getBoolean("vkBandwidth", false));
       CoreBridge.setFxaa(g.getBoolean("fxaa", false));
       CoreBridge.setSharpen(CoreMenu.sharpenLevel(g));
+      CoreBridge.setSharperText(CoreMenu.sharperText(g));
       CoreBridge.setCrt(CoreMenu.crtLevel(g));
       CoreBridge.setBloom(CoreBridge.bloomSent(g));
       CoreBridge.setColour(CoreMenu.colourMode(g), CoreMenu.colourLevel(g));
@@ -480,7 +494,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       // "Dynamic" up to the benchmark's levels on this device, when it ran
       CoreBridge.setDynamicCaps(g.getInt(CoreMenu.DYN_CAP_30, 0), g.getInt(CoreMenu.DYN_CAP_60, 0));
       CoreBridge.setFastCores(g.getInt("fastCores", 0) == 1);
-      CoreBridge.setPotato(CoreBridge.potatoMask(g));
+      CoreBridge.setPotato(CoreBridge.potatoSent(g));
       CoreBridge.sendSoundVolume(g);
       CoreBridge.setAim(aimInvert, aimSpeed, autoAim, alwaysRun);
       CoreBridge.setGentleQte(getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).getBoolean(GENTLE_QTE, GENTLE_QTE_DEFAULT));
@@ -489,6 +503,12 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       if (!settings.contains("RE4_CHEATS=")) {
         if (cheats != 0) Log.i(TAG, "cheats: " + cheats);
         CoreBridge.setCheats(cheats);
+      }
+      // the cheat "Leon's jacket" (1.0; a test script's RE4_LEON_JACKET wins)
+      if (!settings.contains("RE4_LEON_JACKET=")) {
+        final boolean jacket = getSharedPreferences(GAME_PREFS, MODE_PRIVATE).getBoolean(LEON_JACKET, false);
+        if (jacket) Log.i(TAG, "cheats: Leon's jacket");
+        CoreBridge.setLeonJacket(jacket);
       }
       int enemySeed = getSharedPreferences(GAME_PREFS, MODE_PRIVATE).getInt(ENEMY_SEED, 0);
       if (enemySeed != 0) Log.i(TAG, "cheats: random enemies with seed " + enemySeed);
@@ -628,9 +648,35 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     checkCoreProcess();
     checkDiscProblem();
     checkFirstBenchmark();
+    checkShadows();
     int room = CoreBridge.wantedRoom();
     if (room >= 0 && room != preparedRoom && !roomBusy) prepareRoom(room);
     main.postDelayed(this::tick, 500);
+  }
+
+  // the real-time shadows' level last sent (-1 none yet) and its reason (checkShadows)
+  private int shadowLevel = -1;
+  private String shadowWhy = "";
+
+  /** The real-time shadows (RealtimeShadows; in every build since 16.11.2026, until then debug builds only): their
+   *  level from the device, the benchmark, the renderer, Potato's "Shadows & light" and the menu, sent to the renderer
+   *  and the core when it changes, with a line in the error log saying on or off and why. Each tick (the graphics chip
+   *  is known once the renderer runs, a benchmark changes the levels) and at once after the menu changed a switch; not
+   *  while the benchmark measures (it sets the Potato mask itself). */
+  private void checkShadows() {
+    if (benchFlow != null && benchFlow.running()) return;
+    SharedPreferences g = getSharedPreferences(GRAPHICS_PREFS, MODE_PRIVATE);
+    String[] why = new String[1];
+    int level = RealtimeShadows.level(g, perfDevice(), PerfProfile.Bench.of(g), surface instanceof VulkanSurface, why);
+    if (level == shadowLevel && why[0].equals(shadowWhy)) return;
+    boolean changed = level != shadowLevel;
+    shadowLevel = level;
+    shadowWhy = why[0];
+    Log.i(TAG, "real-time shadows: " + RealtimeShadows.logName(level) + " (" + why[0] + ")");
+    if (!changed) return;
+    CoreBridge.shadowBit = RealtimeShadows.coreBits(level);
+    CoreBridge.setShadows(level);
+    CoreBridge.setPotato(CoreBridge.potatoSent(g));
   }
 
   /** The FPS display's place (FPS_PLACE, else the old switch "fps": bottom left). */
@@ -992,9 +1038,9 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       touchControls.setMode(mode);
     }
 
-    @Override public boolean touchIcons() { return touchControls.icons(); }
+    @Override public int touchLook() { return touchControls.look(); }
 
-    @Override public void touchIconsChanged(boolean icons) { touchControls.setIcons(icons); }
+    @Override public void touchLookChanged(int look) { touchControls.setLook(look); }
 
     @Override public void gyroChanged(boolean on) {
       getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).edit().putBoolean(GYRO_AIM, on).apply();
@@ -1071,6 +1117,12 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
       CoreBridge.setAim(aimInvert, aimSpeed, autoAim, alwaysRun);
     }
 
+    @Override public void bodyTurnChanged(boolean on) {
+      getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).edit().putBoolean(BODY_TURN, on).apply();
+      input.setBodyTurn(on);
+      Log.i(TAG, "turn Leon with mouse / look area: " + (on ? "on" : "off"));
+    }
+
     @Override public void gentleQteChanged(boolean on) {
       getSharedPreferences(INPUT_PREFS, MODE_PRIVATE).edit().putBoolean(GENTLE_QTE, on).apply();
       CoreBridge.setGentleQte(on);
@@ -1101,6 +1153,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     @Override public boolean debugMenu() { return !retail; }
     @Override public void startBenchmark() { benchFlow.start(false); }
     @Override public PerfProfile.Device perfDevice() { return CoreActivity.this.perfDevice(); }
+    @Override public void shadowsChanged() { checkShadows(); }
     @Override public void profileChosen(int profile) {
       SharedPreferences g = getSharedPreferences(GRAPHICS_PREFS, MODE_PRIVATE);
       PerfProfile.Device d = perfDevice();
@@ -1132,6 +1185,12 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
           + ((bits & CoreMenu.RANDOM_ITEMS_BIT) != 0 ? ", random items with seed "
               + ((bits & CoreMenu.SEED_BITS) >>> CoreMenu.SEED_SHIFT) : "") + ")");
       CoreBridge.setCheats(bits);
+    }
+
+    @Override public void leonJacketChanged(boolean on) {
+      getSharedPreferences(GAME_PREFS, MODE_PRIVATE).edit().putBoolean(LEON_JACKET, on).apply();
+      Log.i(TAG, "cheats: Leon's jacket " + (on ? "on" : "off"));
+      CoreBridge.setLeonJacket(on);
     }
 
     @Override public void enemyRandomChanged(int seed) {
@@ -1476,8 +1535,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
   /** The app's version ("0.99.2-rc"), for the touch layout file. */
   private String appVersion() {
     try {
-      String v = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
-      return v != null && v.endsWith("-core") ? v.substring(0, v.length() - 5) : v;
+      return AppUpdate.plain(getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
     } catch (android.content.pm.PackageManager.NameNotFoundException e) {
       return "";
     }
@@ -2005,6 +2063,9 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     // menu's "Aim speed" and "Invert vertical" as the sticks
     float[] turn = input.takeAimSwipe();
     if (turn != null) CoreBridge.aimTurn(turn[0] * aimSpeed, (aimInvert ? -turn[1] : turn[1]) * aimSpeed);
+    // "Turn Leon with mouse / look area": the look zone's movement sideways, with the menu's "Aim speed"
+    float body = input.takeBodyTurn();
+    if (body != 0) CoreBridge.bodyTurn(body * aimSpeed);
   }
 
   /** The keys the game maps or the app uses: which of them a device reports. */
@@ -2498,6 +2559,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     CoreBridge.setCpuSkip(skip == 2);
     CoreBridge.setFxaa(g.getBoolean("fxaa", false));
     CoreBridge.setSharpen(CoreMenu.sharpenLevel(g));
+    CoreBridge.setSharperText(CoreMenu.sharperText(g));
     CoreBridge.setCrt(CoreMenu.crtLevel(g));
     CoreBridge.setBloom(CoreBridge.bloomSent(g));
     CoreBridge.setColour(CoreMenu.colourMode(g), CoreMenu.colourLevel(g));
@@ -2507,7 +2569,7 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
     CoreBridge.setViewDistance(CoreBridge.VIEW_PERCENT[CoreBridge.viewDistance(g)]);
     CoreBridge.setDynamicCaps(g.getInt(CoreMenu.DYN_CAP_30, 0), g.getInt(CoreMenu.DYN_CAP_60, 0));
     CoreBridge.setFastCores(g.getInt("fastCores", 0) == 1);
-    CoreBridge.setPotato(CoreBridge.potatoMask(g));
+    CoreBridge.setPotato(CoreBridge.potatoSent(g));
   }
 
   private final BenchmarkFlow.Host benchHost = new BenchmarkFlow.Host() {
@@ -2701,9 +2763,12 @@ public final class CoreActivity extends Activity implements InputManager.InputDe
         // as the mouse moves, but not in the scope or the binoculars, where the C stick zooms (the wheel's job
         // since 0.99.12: moving the mouse up and down zoomed there)
         // ("Invert vertical" for the mouse too, 0.99.12: aiming, the scope, the binoculars)
-        float[] turn = CoreInput.mouseAim(dx, dy, MOUSE_AIM_RADIANS * mouseSensitivity, aimInvert);
+        // ("Turn Leon with mouse / look area", 1.0: the movement sideways turns Leon too, where he does not aim, and
+        // the camera only looks up and down)
+        float[] turn = input.mouseMoved(dx, dy, MOUSE_AIM_RADIANS * mouseSensitivity, MOUSE_LOOK * mouseSensitivity,
+            aimInvert);
         CoreBridge.aimTurn(turn[0], turn[1]);
-        input.mouseLook(dx * MOUSE_LOOK * mouseSensitivity, dy * MOUSE_LOOK * mouseSensitivity);
+        if (turn[2] != 0) CoreBridge.bodyTurn(turn[2]);
         main.removeCallbacks(mouseRest);
         main.postDelayed(mouseRest, 60);
       }

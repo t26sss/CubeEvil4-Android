@@ -12,7 +12,8 @@ right to left (its first letter, or the mark &#x200F; before Latin letters or a
 file name; the FPS display excepted), "N × M" and ".gci" carry the left-to-right mark &#x200E;
 that keeps their order. Also: every R.string.ingame_* / R.plurals.ingame_* the app uses is in
 the English file, and res/xml/locales_config.xml (Android's language per app) lists English and
-exactly the languages with a file. The "Cancel" buttons (SAME) read the same in each language.
+exactly the languages with a file. The "Cancel" buttons (SAME) read the same in each language; the names
+in KEEP stay as they are.
 
     tools/check_translations.py [RES_DIR]
 
@@ -32,7 +33,8 @@ RES = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "app/src/main/res"
 NAME = "strings_ingame.xml"
 JAVA = [ROOT / "app/src/main/java/com/ast/re4decomp" / f for f in ("CoreMenu.java", "CoreActivity.java", "CoreBridge.java",
                                                                   "AppUpdate.java", "BenchmarkFlow.java",
-                                                                  "PerfProfile.java", "TextureImportActivity.java")]
+                                                                  "PerfProfile.java", "TextureImportActivity.java",
+                                                                  "UnofficialWarning.java")]
 PREFIX = "ingame_"
 PLACEHOLDER = re.compile(r"%(?:\d+\$)?[-#+ 0,(]*\d*(?:\.\d+)?[a-zA-Z]")
 LOCALES = "xml/locales_config.xml"
@@ -48,6 +50,12 @@ LRM, RLM = "\u200e", "\u200f"
 # buttons that must read the same in every language: "Cancel" as the verb of the usual Android button, in every
 # question of the app (the project owner, 15.11.2026: "Abbrechen", never "Abbruch")
 SAME = [("ingame_cancel", "ingame_wipe_cancel")]
+# names that stay as they are in every language (KEEP): the note under "Source and updates" (the project owner,
+# 15.11.2026)
+KEEP = {"ingame_source_only": ("CubeEvil4", "Android", "OUYA/Potato"),
+        "ingame_unofficial_text": ("CubeEvil4", "github.com/Andiweli/CubeEvil4-Android"),
+        # the labels on the aim and knife sticks (1.0)
+        "ingame_touch_aim_help": ("AIM", "KNIFE")}
 
 
 def texts(path):
@@ -146,6 +154,10 @@ def main():
         for a, b in SAME:
             if a in strings and b in strings and strings[a] != strings[b]:
                 bad.append(f"{lang}: {a} ({strings[a]}) and {b} ({strings[b]}) must read the same")
+        for name, words in KEEP.items():
+            for word in words:
+                if name in strings and word not in strings[name]:
+                    bad.append(f"{lang}: {name} must keep \"{word}\" as it is")
         for name in sorted(set(en_plurals) - set(plurals)):
             bad.append(f"{lang}: plurals {name} missing")
         for name in sorted(set(plurals) & set(en_plurals)):
